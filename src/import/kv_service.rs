@@ -10,14 +10,15 @@ use kvproto::import_kvpb::*;
 use kvproto::import_kvpb_grpc::*;
 use uuid::Uuid;
 
-use crate::raftstore::store::keys;
-use crate::storage::types::Key;
+use tikv::raftstore::store::keys;
+use tikv::storage::types::Key;
 use tikv_util::time::Instant;
 
 use super::client::*;
 use super::metrics::*;
 use super::service::*;
 use super::{Config, Error, KVImporter};
+use crate::send_rpc_response;
 
 #[derive(Clone)]
 pub struct ImportKVService {

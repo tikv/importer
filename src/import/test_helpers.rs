@@ -11,8 +11,8 @@ use kvproto::kvrpcpb::*;
 use kvproto::metapb::*;
 use uuid::Uuid;
 
-use crate::pd::RegionInfo;
-use crate::raftstore::store::keys;
+use tikv::pd::RegionInfo;
+use tikv::raftstore::store::keys;
 use engine::rocks::{ColumnFamilyOptions, EnvOptions, SstFileWriter, DB};
 use tikv_util::collections::HashMap;
 

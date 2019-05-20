@@ -199,8 +199,8 @@ mod tests {
     use engine::rocks::{DBIterator, DBOptions, ReadOptions, Writable, DB};
     use tempdir::TempDir;
 
-    use crate::config::DbConfig;
-    use crate::storage::types::Key;
+    use tikv::config::DbConfig;
+    use tikv::storage::types::Key;
     use tikv_util::security::SecurityConfig;
 
     fn open_db<P: AsRef<Path>>(path: P) -> Arc<DB> {

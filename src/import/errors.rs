@@ -9,10 +9,11 @@ use futures::sync::oneshot::Canceled;
 use grpcio::Error as GrpcError;
 use kvproto::errorpb;
 use kvproto::metapb::*;
+use quick_error::quick_error;
 use uuid::{ParseError, Uuid};
 
-use crate::pd::{Error as PdError, RegionInfo};
-use crate::raftstore::errors::Error as RaftStoreError;
+use tikv::pd::{Error as PdError, RegionInfo};
+use tikv::raftstore::errors::Error as RaftStoreError;
 use tikv_util::codec::Error as CodecError;
 
 quick_error! {

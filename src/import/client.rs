@@ -15,8 +15,8 @@ use kvproto::kvrpcpb::*;
 use kvproto::pdpb::OperatorStatus;
 use kvproto::tikvpb_grpc::*;
 
-use crate::pd::{Config as PdConfig, Error as PdError, PdClient, RegionInfo, RpcClient};
-use crate::storage::types::Key;
+use tikv::pd::{Config as PdConfig, Error as PdError, PdClient, RegionInfo, RpcClient};
+use tikv::storage::types::Key;
 use tikv_util::collections::{HashMap, HashMapEntry};
 use tikv_util::security::SecurityManager;
 

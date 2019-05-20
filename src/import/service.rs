@@ -19,6 +19,7 @@ where
     }));
 }
 
+#[macro_export]
 macro_rules! send_rpc_response {
     ($res:ident, $sink:ident, $label:ident, $timer:ident) => {{
         let res = match $res {

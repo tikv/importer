@@ -4,20 +4,15 @@
 #![feature(proc_macro_hygiene)]
 
 #[macro_use(
-    slog_kv,
     slog_crit,
     slog_info,
-    slog_log,
-    slog_record,
-    slog_b,
-    slog_record_static
 )]
 extern crate slog;
 #[macro_use]
 extern crate slog_global;
 
-use crate::util::setup::*;
-use crate::util::signal_handler;
+use tikv::binutil::setup::*;
+use tikv::binutil::signal_handler;
 
 use clap::{crate_authors, crate_version, App, Arg, ArgMatches};
 
@@ -25,7 +20,7 @@ use clap::{crate_authors, crate_version, App, Arg, ArgMatches};
 use tikv::binutil as util;
 use tikv::config::TiKvConfig;
 use tikv::fatal;
-use tikv::import::ImportKVServer;
+use tikv_importer::import::ImportKVServer;
 use tikv_util::{self as tikv_util, check_environment_variables};
 
 fn main() {
