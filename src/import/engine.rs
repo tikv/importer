@@ -15,12 +15,12 @@ use uuid::Uuid;
 use kvproto::import_kvpb::*;
 use kvproto::import_sstpb::*;
 
-use crate::config::DbConfig;
-use crate::raftstore::coprocessor::properties::{SizeProperties, SizePropertiesCollectorFactory};
-use crate::raftstore::store::keys;
-use crate::storage::is_short_value;
-use crate::storage::mvcc::{Write, WriteType};
-use crate::storage::types::Key;
+use tikv::config::DbConfig;
+use tikv::raftstore::coprocessor::properties::{SizeProperties, SizePropertiesCollectorFactory};
+use tikv::raftstore::store::keys;
+use tikv::storage::is_short_value;
+use tikv::storage::mvcc::{Write, WriteType};
+use tikv::storage::types::Key;
 use engine::rocks::util::{new_engine_opt, CFOptions};
 use engine::rocks::{
     BlockBasedOptions, Cache, ColumnFamilyOptions, DBIterator, DBOptions, Env, EnvOptions,
@@ -380,9 +380,9 @@ mod tests {
     use std::io::{self, Write};
     use tempdir::TempDir;
 
-    use crate::raftstore::store::RegionSnapshot;
-    use crate::storage::mvcc::MvccReader;
-    use crate::storage::BlockCacheConfig;
+    use tikv::raftstore::store::RegionSnapshot;
+    use tikv::storage::mvcc::MvccReader;
+    use tikv::storage::BlockCacheConfig;
     use engine::rocks::util::security::encrypted_env_from_cipher_file;
     use tikv_util::file::file_exists;
 

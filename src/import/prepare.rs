@@ -7,8 +7,8 @@ use std::time::{Duration, Instant};
 
 use kvproto::metapb::*;
 
-use crate::pd::RegionInfo;
-use crate::raftstore::coprocessor::properties::SizeProperties;
+use tikv::pd::RegionInfo;
+use tikv::raftstore::coprocessor::properties::SizeProperties;
 
 use super::client::*;
 use super::common::*;
@@ -326,8 +326,8 @@ mod tests {
     use tempdir::TempDir;
     use uuid::Uuid;
 
-    use crate::config::DbConfig;
-    use crate::storage::types::Key;
+    use tikv::config::DbConfig;
+    use tikv::storage::types::Key;
     use tikv_util::security::SecurityConfig;
 
     fn new_encoded_key(k: &[u8]) -> Vec<u8> {

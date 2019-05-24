@@ -1,0 +1,9 @@
+language: rust
+rust:
+  - nightly-2019-04-25
+
+script:
+  - cargo build
+  - cargo test
+
+cache: cargo

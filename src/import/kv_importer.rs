@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use kvproto::import_kvpb::*;
 use uuid::Uuid;
 
-use crate::config::DbConfig;
+use tikv::config::DbConfig;
 use tikv_util::collections::HashMap;
 
 use super::client::*;
