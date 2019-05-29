@@ -45,6 +45,16 @@ tempdir = "0.3"
 rand = "0.6"
 test_util = { version = "0.0.1", git = "https://github.com/tikv/tikv.git" }
 
+[features]
+default = ['tikv/default']
+tcmalloc = ['tikv/tcmalloc']
+jemalloc = ['tikv/jemalloc']
+portable = ['tikv/portable']
+sse = ['tikv/sse']
+mem-profiling = ['tikv/mem-profiling']
+profiling = ['tikv/profiling']
+no-fail = ['tikv/no-fail']
+
 [profile.dev]
 panic = "abort"
 
