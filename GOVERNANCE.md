@@ -6,7 +6,7 @@ Depending on the status of your current organization, the process for becoming a
 
 1. Express interest to the senior maintainers that your organization is interested in becoming a
   maintainer. Becoming a maintainer generally means that you are going to be spending substantial
-  time (>25%) on TiKV for the foreseeable future. You are expected to have domain expertise and be extremely
+  time (>25%) on TiKV Importer for the foreseeable future. You are expected to have domain expertise and be extremely
   proficient in Rust. Ultimately your goal is to become a senior maintainer that will represent your
   organization.
 2. We will expect you to start contributing increasingly complicated PRs, under the guidance
@@ -37,7 +37,7 @@ Depending on the status of your current organization, the process for becoming a
 * Monitor email aliases.
 * Monitor Slack (delayed response is perfectly acceptable).
 * Triage GitHub issues and perform pull request reviews for other maintainers and the community.
-* During GitHub issue triage, apply all applicable [labels](https://github.com/tikv/tikv/labels)
+* During GitHub issue triage, apply all applicable [labels](https://github.com/tikv/importer/labels)
   to each new issue. Labels are extremely useful for follow-up of future issues. Which labels to apply
   is somewhat subjective so just use your best judgment. A few of the most important labels that are
   not self explanatory are:
@@ -55,7 +55,7 @@ Depending on the status of your current organization, the process for becoming a
   that although this should be a rare occurrence, if a serious vulnerability is found, the process
   may take up to several full days of work to implement. This possibility should be taken into account
   when discussing time commitment with employers.
-* In general continue to be willing to spend at least 25% of your time working on TiKV (~1.25
+* In general continue to be willing to spend at least 25% of your time working on TiKV Importer (~1.25
   business days per week).
 * We currently maintain an "on-call" rotation within the maintainers. Each on-call is 1 week long.
   Although all maintainers are welcome to perform all of the above tasks, it is the on-call
@@ -66,23 +66,19 @@ Depending on the status of your current organization, the process for becoming a
 
 ## Cutting a release
 
-We do releases approximately every 6 weeks. Here is how a regular release goes out:
+We do major releases approximately twice a year and a revision release every 2 weeks. Here is how a regular release goes out:
 
 1. Decide on the somewhat arbitrary time when a release will occur.
 2. Take a look at open issues tagged with the current release, by
-  [searching](https://github.com/tikv/tikv/issues) for
+  [searching](https://github.com/tikv/importer/issues) for
   "is:open is:issue milestone:[current milestone]".  Make your call on holding them off until
   they are fixed or bump them to the next milestone.
-3. Do a final check of the [changelog](https://github.com/tikv/tikv/blob/master/CHANGELOG.md) and make any needed
-  corrections.
-4. **Wait for tests to pass on
-  [master](https://internal.pingcap.net/idc-jenkins/job/build_tikv_master/).**
-5. Create a [tagged release](https://github.com/tikv/tikv/releases). The release should
+3. **Wait for tests to pass on
+  [master](https://internal.pingcap.net/idc-jenkins/job/build_tikv_importer_master/).**
+4. Create a [tagged release](https://github.com/tikv/importer/releases). The release should
   start with "v" and be followed by the version number. E.g., "v1.6.0". **This must match the
-  [VERSION](VERSION).**
-6. Open a PR on the [Website repo](https://github.com/tikv/website) to reflect the new release.
-7. If possible post on Twitter (or, ask @hoverbear to do it).
-8. Do a new PR to update [Cargo.toml](Cargo.toml) to the next development release. E.g., "1.7.0-dev".
+  version in [Cargo.toml](Cargo.toml).**
+5. Do a new PR to update [Cargo.toml](Cargo.toml) to the next development release. E.g., "1.7.0-dev".
 
 ## When does a maintainer lose maintainer status
 
