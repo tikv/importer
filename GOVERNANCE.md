@@ -32,6 +32,7 @@ Depending on the status of your current organization, the process for becoming a
 5. "Standard" maintainer access can be upgraded to "senior" maintainer access after another 1-2
   months of work and another conference among the existing senior maintainers.
 
+
 ## Maintainer responsibilities
 
 * Monitor email aliases.
