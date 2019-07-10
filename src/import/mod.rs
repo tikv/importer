@@ -18,8 +18,8 @@ mod stream;
 #[cfg(test)]
 mod test_helpers;
 
-pub use kv_server::ImportKVServer;
 pub(crate) use config::Config;
 pub(crate) use errors::{Error, Result};
 pub(crate) use kv_importer::KVImporter;
+pub use kv_server::ImportKVServer;
 pub(crate) use kv_service::ImportKVService;

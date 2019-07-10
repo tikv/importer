@@ -3,12 +3,7 @@
 #![recursion_limit = "128"]
 #![feature(duration_float)]
 
-#[macro_use(
-    slog_debug,
-    slog_error,
-    slog_info,
-    slog_warn,
-)]
+#[macro_use(slog_debug, slog_error, slog_info, slog_warn)]
 extern crate slog;
 
 #[macro_use]

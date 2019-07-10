@@ -3,7 +3,7 @@
 use std::error::Error;
 use std::result::Result;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use tikv_util::config::{ReadableDuration, ReadableSize};
 
