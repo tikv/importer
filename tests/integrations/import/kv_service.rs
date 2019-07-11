@@ -11,9 +11,9 @@ use grpcio::{ChannelBuilder, Environment, Result, WriteFlags};
 use kvproto::import_kvpb::*;
 use kvproto::import_kvpb_grpc::*;
 
+use test_util::retry;
 use tikv::config::TiKvConfig;
 use tikv_importer::import::ImportKVServer;
-use test_util::retry;
 
 fn new_kv_server() -> (ImportKVServer, ImportKvClient, TempDir) {
     let temp_dir = TempDir::new("test_import_kv_server").unwrap();
