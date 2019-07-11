@@ -235,7 +235,7 @@ impl ImportClient for Client {
 
     fn is_space_enough(&self, store_id: u64, size: u64) -> Result<bool> {
         let stats = self.pd.get_store_stats(store_id)?;
-        let available_ratio = (stats.available - size) as f64 / stats.capacity as f64;
+        let available_ratio = stats.available.saturating_sub(size) as f64 / stats.capacity as f64;
         // Ensure target store have available disk space
         Ok(available_ratio > self.min_available_ratio)
     }
