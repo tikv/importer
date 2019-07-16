@@ -68,12 +68,12 @@ impl Engine {
         self.uuid
     }
 
-    pub fn write(&self, mut batch: WriteBatch) -> Result<usize> {
+    pub fn write(&self, batch: WriteBatch) -> Result<usize> {
         // Just a guess.
         let wb_cap = cmp::min(batch.get_mutations().len() * 128, MB as usize);
         let wb = RawBatch::with_capacity(wb_cap);
         let commit_ts = batch.get_commit_ts();
-        for m in batch.take_mutations().iter_mut() {
+        for m in batch.get_mutations().iter() {
             match m.get_op() {
                 Mutation_OP::Put => {
                     let k = Key::from_raw(m.get_key()).append_ts(commit_ts);
