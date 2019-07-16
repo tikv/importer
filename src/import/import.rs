@@ -406,10 +406,15 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
             let file = self.sst.info.open()?;
             let upload = UploadStream::new(self.sst.meta.clone(), file);
             let store_id = peer.get_store_id();
+            let mut err_logged = false;
             while !self
                 .client
                 .is_space_enough(store_id, self.sst.info.file_size)?
             {
+                if !err_logged {
+                    warn!("no enough space, will retry silently"; "tag" => %self.tag, "store" => %store_id);
+                    err_logged = true;
+                }
                 let label = format!("{}", store_id);
                 IMPORT_STORE_SAPCE_NOT_ENOUGH_COUNTER
                     .with_label_values(&[label.as_str()])
