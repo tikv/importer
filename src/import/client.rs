@@ -66,9 +66,7 @@ pub struct Client {
 
 impl Client {
     pub fn new(pd_addr: &str, cq_count: usize, min_available_ratio: f64) -> Result<Client> {
-        let cfg = PdConfig {
-            endpoints: vec![pd_addr.to_owned()],
-        };
+        let cfg = PdConfig::new(vec![pd_addr.to_owned()]);
         let sec_mgr = SecurityManager::default();
         let rpc_client = RpcClient::new(&cfg, Arc::new(sec_mgr))?;
         let env = EnvBuilder::new()
@@ -237,7 +235,7 @@ impl ImportClient for Client {
 
     fn is_space_enough(&self, store_id: u64, size: u64) -> Result<bool> {
         let stats = self.pd.get_store_stats(store_id)?;
-        let available_ratio = (stats.available - size) as f64 / stats.capacity as f64;
+        let available_ratio = stats.available.saturating_sub(size) as f64 / stats.capacity as f64;
         // Ensure target store have available disk space
         Ok(available_ratio > self.min_available_ratio)
     }
