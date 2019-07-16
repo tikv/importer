@@ -88,7 +88,7 @@ impl<Client: ImportClient> ImportJob<Client> {
             if i == MAX_RETRY_TIMES - 1 {
                 res = Err(Error::ImportJobFailed(format!(
                     "retry {} times still {} ranges failed",
-                    i, retry_count
+                    MAX_RETRY_TIMES, retry_count
                 )))
             }
         }
