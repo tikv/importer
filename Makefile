@@ -25,9 +25,9 @@ ifneq ($(ROCKSDB_SYS_SSE),0)
 ENABLE_FEATURES += sse
 endif
 
-ifneq ($(FAIL_POINT),1)
-ENABLE_FEATURES += no-fail
-endif
+# ifneq ($(FAIL_POINT),1)
+# ENABLE_FEATURES += no-fail
+# endif
 
 BUILD_INFO_GIT_FALLBACK := "Unknown (no git or not git repo)"
 BUILD_INFO_RUSTC_FALLBACK := "Unknown"

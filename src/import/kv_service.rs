@@ -2,10 +2,9 @@
 
 use std::sync::Arc;
 
-use futures::sync::mpsc;
-use futures::{Future, Stream};
+use futures::Future;
 use futures_cpupool::{Builder, CpuPool};
-use grpcio::{ClientStreamingSink, RequestStream, RpcContext, UnarySink};
+use grpcio::{RpcContext, UnarySink};
 use kvproto::import_kvpb::*;
 use kvproto::import_kvpb_grpc::*;
 use uuid::Uuid;
@@ -15,7 +14,7 @@ use tikv::storage::types::Key;
 use tikv_util::time::Instant;
 
 use super::client::*;
-use super::metrics::*;
+use super::metrics::{self, *};
 use super::service::*;
 use super::{Config, Error, KVImporter};
 use crate::send_rpc_response;
@@ -115,60 +114,43 @@ impl ImportKv for ImportKVService {
         )
     }
 
-    fn write_engine(
+    fn write_engine_v3(
         &mut self,
         ctx: RpcContext<'_>,
-        stream: RequestStream<WriteEngineRequest>,
-        sink: ClientStreamingSink<WriteEngineResponse>,
+        req: WriteEngineV3Request,
+        sink: UnarySink<WriteEngineResponse>,
     ) {
         let label = "write_engine";
         let timer = Instant::now_coarse();
         let import = Arc::clone(&self.importer);
-        let bounded_stream = mpsc::spawn(stream, &self.threads, self.cfg.stream_channel_window);
 
         ctx.spawn(
-            self.threads.spawn(
-                bounded_stream
-                    .into_future()
-                    .map_err(|(e, _)| Error::from(e))
-                    .and_then(move |(chunk, stream)| {
-                        // The first message of the stream specifies the uuid of
-                        // the corresponding engine.
-                        // The engine should be opened before any write.
-                        let head = match chunk {
-                            Some(ref chunk) if chunk.has_head() => chunk.get_head(),
-                            _ => return Err(Error::InvalidChunk),
-                        };
-                        let uuid = Uuid::from_bytes(head.get_uuid())?;
-                        let engine = import.bind_engine(uuid)?;
-                        Ok((engine, stream))
-                    })
-                    .and_then(move |(engine, stream)| {
-                        stream.map_err(Error::from).for_each(move |mut chunk| {
-                            let start = Instant::now_coarse();
-                            if !chunk.has_batch() {
-                                return Err(Error::InvalidChunk);
-                            }
-                            let batch = chunk.take_batch();
-                            let batch_size = engine.write(batch)?;
-                            IMPORT_WRITE_CHUNK_BYTES.observe(batch_size as f64);
-                            IMPORT_WRITE_CHUNK_DURATION.observe(start.elapsed_secs());
-                            Ok(())
-                        })
-                    })
-                    .then(move |res| match res {
-                        Ok(_) => Ok(WriteEngineResponse::new()),
-                        Err(Error::EngineNotFound(v)) => {
-                            let mut resp = WriteEngineResponse::new();
-                            resp.mut_error()
-                                .mut_engine_not_found()
-                                .set_uuid(v.as_bytes().to_vec());
-                            Ok(resp)
-                        }
-                        Err(e) => Err(e),
-                    })
-                    .then(move |res| send_rpc_response!(res, sink, label, timer)),
-            ),
+            self.threads
+                .spawn_fn(move || {
+                    let uuid = Uuid::from_bytes(req.get_uuid())?;
+                    let engine = import.bind_engine(uuid)?;
+                    Ok((engine, req))
+                })
+                .and_then(move |(engine, req)| {
+                    let ts = req.get_commit_ts();
+                    let start = Instant::now_coarse();
+                    let write_size = engine.write(ts, req.get_pairs())?;
+                    IMPORT_WRITE_CHUNK_BYTES.observe(write_size as f64);
+                    IMPORT_WRITE_CHUNK_DURATION.observe(start.elapsed_secs());
+                    Ok(())
+                })
+                .then(move |res| match res {
+                    Ok(_) => Ok(WriteEngineResponse::new()),
+                    Err(Error::EngineNotFound(v)) => {
+                        let mut resp = WriteEngineResponse::new();
+                        resp.mut_error()
+                            .mut_engine_not_found()
+                            .set_uuid(v.as_bytes().to_vec());
+                        Ok(resp)
+                    }
+                    Err(e) => Err(e),
+                })
+                .then(move |res| send_rpc_response!(res, sink, label, timer)),
         )
     }
 
@@ -286,6 +268,53 @@ impl ImportKv for ImportKVService {
                     }
                 })
                 .map(|_| CompactClusterResponse::new())
+                .then(move |res| send_rpc_response!(res, sink, label, timer)),
+        )
+    }
+
+    fn get_version(
+        &mut self,
+        ctx: RpcContext<'_>,
+        _req: GetVersionRequest,
+        sink: UnarySink<GetVersionResponse>,
+    ) {
+        let label = "get_version";
+        let timer = Instant::now_coarse();
+
+        ctx.spawn(
+            self.threads
+                .spawn_fn(|| {
+                    Ok((env!("CARGO_PKG_VERSION"), env!("TIKV_BUILD_GIT_HASH")))
+                })
+                .map(|(v, c)| {
+                    let mut res = GetVersionResponse::new();
+                    res.set_version(v.to_owned());
+                    res.set_commit(c.to_owned());
+                    res
+                })
+                .then(move |res| send_rpc_response!(res, sink, label, timer)),
+        )
+    }
+
+    fn get_metrics(
+        &mut self,
+        ctx: RpcContext<'_>,
+        _req: GetMetricsRequest,
+        sink: UnarySink<GetMetricsResponse>,
+    ) {
+        let label = "get_metrics";
+        let timer = Instant::now_coarse();
+
+        ctx.spawn(
+            self.threads
+                .spawn_fn(|| {
+                    Ok(metrics::dump())
+                })
+                .map(|v| {
+                    let mut res = GetMetricsResponse::new();
+                    res.set_prometheus(v);
+                    res
+                })
                 .then(move |res| send_rpc_response!(res, sink, label, timer)),
         )
     }

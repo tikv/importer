@@ -68,18 +68,13 @@ impl Engine {
         self.uuid
     }
 
-    pub fn write(&self, batch: WriteBatch) -> Result<usize> {
+    pub fn write(&self, commit_ts: u64, pairs: &[KVPair]) -> Result<usize> {
         // Just a guess.
-        let wb_cap = cmp::min(batch.get_mutations().len() * 128, MB as usize);
+        let wb_cap = cmp::min(pairs.len() * 128, MB as usize);
         let wb = RawBatch::with_capacity(wb_cap);
-        let commit_ts = batch.get_commit_ts();
-        for m in batch.get_mutations().iter() {
-            match m.get_op() {
-                Mutation_OP::Put => {
-                    let k = Key::from_raw(m.get_key()).append_ts(commit_ts);
-                    wb.put(k.as_encoded(), m.get_value()).unwrap();
-                }
-            }
+        for p in pairs.iter() {
+            let k = Key::from_raw(p.get_key()).append_ts(commit_ts);
+            wb.put(k.as_encoded(), p.get_value()).unwrap();
         }
 
         let size = wb.data_size();
@@ -395,17 +390,15 @@ mod tests {
         (dir, engine)
     }
 
-    fn new_write_batch(n: u8, ts: u64) -> WriteBatch {
-        let mut wb = WriteBatch::new();
+    fn new_kv_pairs(n: u8) -> Vec<KVPair> {
+        let mut pairs = vec![KVPair::new(); n as usize];
         for i in 0..n {
-            let mut m = Mutation::new();
-            m.set_op(Mutation_OP::Put);
-            m.set_key(vec![i]);
-            m.set_value(vec![i]);
-            wb.mut_mutations().push(m);
+            let mut p = KVPair::new();
+            p.set_key(vec![i]);
+            p.set_value(vec![i]);
+            pairs[i as usize] = p;
         }
-        wb.set_commit_ts(ts);
-        wb
+        pairs
     }
 
     fn new_encoded_key(i: u8, ts: u64) -> Vec<u8> {
@@ -418,8 +411,8 @@ mod tests {
 
         let n = 10;
         let commit_ts = 10;
-        let wb = new_write_batch(n, commit_ts);
-        engine.write(wb).unwrap();
+        let pairs = new_kv_pairs(n);
+        engine.write(commit_ts, &pairs).unwrap();
 
         for i in 0..n {
             let key = new_encoded_key(i, commit_ts);
