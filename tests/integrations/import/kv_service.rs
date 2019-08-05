@@ -13,6 +13,7 @@ use kvproto::import_kvpb_grpc::*;
 
 use test_util::retry;
 use tikv::config::TiKvConfig;
+
 use tikv_importer::import::ImportKVServer;
 
 fn new_kv_server() -> (ImportKVServer, ImportKvClient, TempDir) {
