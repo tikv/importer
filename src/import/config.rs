@@ -1,14 +1,43 @@
 // Copyright 2018 TiKV Project Authors. Licensed under Apache-2.0.
 
 use std::error::Error;
+use std::path::Path;
 use std::result::Result;
 
 use serde::{Deserialize, Serialize};
 
+use tikv::config::{log_level_serde, DbConfig, MetricConfig};
 use tikv_util::config::{ReadableDuration, ReadableSize};
+use tikv_util::security::SecurityConfig;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(default)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "kebab-case")]
+pub struct TiKvConfig {
+    #[serde(with = "log_level_serde")]
+    pub log_level: slog::Level,
+    pub log_file: String,
+    pub log_rotation_timespan: ReadableDuration,
+    pub storage: StorageConfig,
+    pub server: tikv::server::Config,
+    pub metric: MetricConfig,
+    pub rocksdb: DbConfig,
+    pub security: SecurityConfig,
+    pub import: Config,
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+#[serde(default)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "kebab-case")]
+pub struct StorageConfig {
+    pub data_dir: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+#[serde(default)]
+#[serde(deny_unknown_fields)]
 #[serde(rename_all = "kebab-case")]
 pub struct Config {
     pub import_dir: String,
@@ -21,25 +50,6 @@ pub struct Config {
     pub max_open_engines: usize,
     pub upload_speed_limit: ReadableSize,
     pub min_available_ratio: f64,
-}
-
-// TODO: Decouple our program config from tikv::config.
-
-impl From<tikv::import::Config> for Config {
-    fn from(cfg: tikv::import::Config) -> Self {
-        Self {
-            import_dir: cfg.import_dir,
-            num_threads: cfg.num_threads,
-            num_import_jobs: cfg.num_import_jobs,
-            num_import_sst_jobs: cfg.num_import_sst_jobs,
-            max_prepare_duration: cfg.max_prepare_duration,
-            region_split_size: cfg.region_split_size,
-            stream_channel_window: cfg.stream_channel_window,
-            max_open_engines: cfg.max_open_engines,
-            upload_speed_limit: cfg.upload_speed_limit,
-            min_available_ratio: cfg.min_available_ratio,
-        }
-    }
 }
 
 impl Default for Config {
@@ -86,5 +96,68 @@ impl Config {
             return Err("import.min_available_ratio can not less than 0.02".into());
         }
         Ok(())
+    }
+}
+
+impl Default for TiKvConfig {
+    fn default() -> Self {
+        Self {
+            log_level: slog::Level::Info,
+            log_file: "".to_owned(),
+            log_rotation_timespan: ReadableDuration::hours(24),
+            server: tikv::server::Config::default(),
+            metric: MetricConfig::default(),
+            rocksdb: DbConfig::default(),
+            security: SecurityConfig::default(),
+            import: Config::default(),
+            storage: StorageConfig::default(),
+        }
+    }
+}
+
+impl TiKvConfig {
+    pub fn validate(&mut self) -> Result<(), Box<dyn Error>> {
+        // FIXME: DbConfig::validate is private.
+        // self.rocksdb.validate()?;
+        self.server.validate()?;
+        self.security.validate()?;
+        self.import.validate()?;
+        Ok(())
+    }
+
+    pub fn from_file(path: &Path) -> Self {
+        (|| -> Result<Self, Box<dyn Error>> {
+            let s = std::fs::read_to_string(&path)?;
+            Ok(toml::from_str(&s)?)
+        })()
+        .unwrap_or_else(|e| {
+            panic!(
+                "invalid auto generated configuration file {}, err {}",
+                path.display(),
+                e
+            );
+        })
+    }
+}
+
+impl Default for StorageConfig {
+    fn default() -> Self {
+        Self {
+            data_dir: "./".to_owned(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_unrecognized_config() {
+        let res = toml::from_str::<TiKvConfig>("log-level = 'info'\n");
+        assert!(res.is_ok());
+
+        let res = toml::from_str::<TiKvConfig>("not-log-level = 'info'\n");
+        assert!(res.is_err());
     }
 }

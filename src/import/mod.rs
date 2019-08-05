@@ -19,6 +19,7 @@ mod stream;
 mod test_helpers;
 
 pub(crate) use config::Config;
+pub use config::TiKvConfig;
 pub(crate) use errors::{Error, Result};
 pub(crate) use kv_importer::KVImporter;
 pub use kv_server::ImportKVServer;

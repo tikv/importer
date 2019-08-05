@@ -8,6 +8,8 @@ extern crate slog;
 #[macro_use]
 extern crate slog_global;
 
+use std::path::Path;
+
 use tikv::binutil::setup::*;
 use tikv::binutil::signal_handler;
 
@@ -15,10 +17,9 @@ use clap::{crate_authors, crate_version, App, Arg, ArgMatches};
 
 #[cfg(unix)]
 use tikv::binutil as util;
-use tikv::config::TiKvConfig;
 use tikv::fatal;
-use tikv_importer::import::ImportKVServer;
-use tikv_util::{self as tikv_util, check_environment_variables};
+use tikv_importer::import::{ImportKVServer, TiKvConfig};
+use tikv_util::{self as tikv_util, check_environment_variables, logger};
 
 fn main() {
     let matches = App::new("TiKV Importer")
@@ -67,7 +68,14 @@ fn main() {
         .get_matches();
 
     let config = setup_config(&matches);
-    initial_logger(&config);
+
+    // FIXME: Shouldn't need to construct tikv::config::TiKvConfig to use initial_logger.
+    let mut logger_config = tikv::config::TiKvConfig::default();
+    logger_config.log_level = config.log_level;
+    logger_config.log_file = config.log_file.clone();
+    logger_config.log_rotation_timespan = config.log_rotation_timespan.clone();
+    initial_logger(&logger_config);
+
     tikv_util::set_panic_hook(false, &config.storage.data_dir);
 
     initial_metric(&config.metric, None);
@@ -84,14 +92,31 @@ fn main() {
     run_import_server(&config);
 }
 
+fn overwrite_config_with_cmd_args(config: &mut TiKvConfig, matches: &ArgMatches<'_>) {
+    if let Some(level) = matches.value_of("log-level") {
+        config.log_level = logger::get_level_by_string(level).unwrap();
+    }
+    if let Some(file) = matches.value_of("log-file") {
+        config.log_file = file.to_owned();
+    }
+    if let Some(addr) = matches.value_of("addr") {
+        config.server.addr = addr.to_owned();
+    }
+    if let Some(import_dir) = matches.value_of("import-dir") {
+        config.import.import_dir = import_dir.to_owned();
+    }
+}
+
 fn setup_config(matches: &ArgMatches<'_>) -> TiKvConfig {
     let mut config = matches
-        .value_of("config")
-        .map_or_else(TiKvConfig::default, |path| TiKvConfig::from_file(&path));
+        .value_of_os("config")
+        .map_or_else(TiKvConfig::default, |path| {
+            TiKvConfig::from_file(Path::new(&path))
+        });
 
     overwrite_config_with_cmd_args(&mut config, matches);
 
-    if let Err(e) = config.import.validate() {
+    if let Err(e) = config.validate() {
         fatal!("invalid configuration: {:?}", e);
     }
     info!(
@@ -99,7 +124,8 @@ fn setup_config(matches: &ArgMatches<'_>) -> TiKvConfig {
         "config" => serde_json::to_string(&config).unwrap(),
     );
 
-    config.write_into_metrics();
+    // FIXME: DbConfig::write_into_metrics is private.
+    // config.rocksdb.write_into_metrics();
 
     config
 }
