@@ -3,6 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use clap::crate_version;
 use futures::{stream, Future, Stream};
 use tempdir::TempDir;
 use uuid::Uuid;
@@ -12,9 +13,8 @@ use kvproto::import_kvpb::*;
 use kvproto::import_kvpb_grpc::*;
 
 use test_util::retry;
-use tikv::config::TiKvConfig;
+use tikv_importer::import::{ImportKVServer, TiKvConfig};
 
-use tikv_importer::import::ImportKVServer;
 
 fn new_kv_server() -> (ImportKVServer, ImportKvClient, TempDir) {
     let temp_dir = TempDir::new("test_import_kv_server").unwrap();
@@ -42,6 +42,13 @@ fn new_kv_server() -> (ImportKVServer, ImportKvClient, TempDir) {
 fn test_kv_service() {
     let (mut server, client, _) = new_kv_server();
     server.start();
+
+    let resp = retry!(client.get_version(&GetVersionRequest::new())).unwrap();
+    assert!(resp.get_version().starts_with(&format!("v{}", crate_version!())));
+
+    let resp = retry!(client.get_metrics(&GetMetricsRequest::new())).unwrap();
+    // It's true since we just send a get_version rpc
+    assert!(resp.get_prometheus().contains("request=\"get_version\",result=\"ok\""));
 
     let uuid = Uuid::new_v4().as_bytes().to_vec();
     let mut head = WriteHead::new();

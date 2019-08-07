@@ -178,6 +178,14 @@ impl KVImporter {
             }
         }
     }
+
+    /// Get importer's version
+    /// version string formats like 'v3.0.0-123abc'
+    pub fn get_version(&self) -> Result<String> {
+        let pkg_version = env!("CARGO_PKG_VERSION");
+        let commit_num = &env!("GIT_HASH")[..6];
+        Ok(format!("v{}-{}", pkg_version, commit_num))
+    }
 }
 
 /// EngineDir is responsible for managing engine directories.
