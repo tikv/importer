@@ -298,16 +298,16 @@ impl ImportKv for ImportKVService {
     ) {
         let label = "get_version";
         let timer = Instant::now_coarse();
-        let import = Arc::clone(&self.importer);
 
         ctx.spawn(
             self.threads
-                .spawn_fn(move || {
-                    import.get_version()
+                .spawn_fn(|| {
+                    Ok((env!("CARGO_PKG_VERSION"), env!("TIKV_BUILD_GIT_HASH")))
                 })
-                .map(|v| {
+                .map(|(v, c)| {
                     let mut res = GetVersionResponse::new();
-                    res.set_version(v);
+                    res.set_version(v.to_owned());
+                    res.set_commit(c.to_owned());
                     res
                 })
                 .then(move |res| send_rpc_response!(res, sink, label, timer)),
@@ -325,7 +325,7 @@ impl ImportKv for ImportKVService {
 
         ctx.spawn(
             self.threads
-                .spawn_fn(move || {
+                .spawn_fn(|| {
                     Ok(metrics::dump())
                 })
                 .map(|v| {

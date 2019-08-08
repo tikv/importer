@@ -44,7 +44,8 @@ fn test_kv_service() {
     server.start();
 
     let resp = retry!(client.get_version(&GetVersionRequest::new())).unwrap();
-    assert!(resp.get_version().starts_with(&format!("v{}", crate_version!())));
+    assert_eq!(resp.get_version(), crate_version!());
+    assert_eq!(resp.get_commit().len(), 40);
 
     let resp = retry!(client.get_metrics(&GetMetricsRequest::new())).unwrap();
     // It's true since we just send a get_version rpc
