@@ -15,7 +15,6 @@ use kvproto::import_kvpb_grpc::*;
 use test_util::retry;
 use tikv_importer::import::{ImportKVServer, TiKvConfig};
 
-
 fn new_kv_server() -> (ImportKVServer, ImportKvClient, TempDir) {
     let temp_dir = TempDir::new("test_import_kv_server").unwrap();
 
