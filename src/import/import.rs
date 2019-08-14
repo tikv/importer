@@ -9,7 +9,7 @@ use crossbeam::channel::{bounded, Receiver, Sender};
 use kvproto::import_sstpb::*;
 use uuid::Uuid;
 
-use tikv::pd::RegionInfo;
+use pd_client::RegionInfo;
 use tikv_util::time::Instant;
 
 use super::client::*;

@@ -46,7 +46,7 @@ fn test_kv_service() {
     head.set_uuid(uuid.clone());
 
     let mut m = Mutation::new();
-    m.op = Mutation_OP::Put;
+    m.op = MutationOp::Put;
     m.set_key(vec![1]);
     m.set_value(vec![1]);
     let mut batch = WriteBatch::new();

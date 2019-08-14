@@ -3,13 +3,10 @@
 use std::cmp;
 use std::fmt;
 use std::i32;
-use std::io::Read;
-use std::mem::uninitialized;
 use std::ops::Deref;
 use std::path::{Path, PathBuf, MAIN_SEPARATOR};
 use std::sync::Arc;
 
-use crc::crc32::{self, Hasher32};
 use uuid::Uuid;
 
 use kvproto::import_kvpb::*;
@@ -75,7 +72,7 @@ impl Engine {
         let commit_ts = batch.get_commit_ts();
         for m in batch.get_mutations().iter() {
             match m.get_op() {
-                Mutation_OP::Put => {
+                MutationOp::Put => {
                     let k = Key::from_raw(m.get_key()).append_ts(commit_ts);
                     wb.put(k.as_encoded(), m.get_value()).unwrap();
                 }
@@ -171,25 +168,15 @@ impl LazySSTInfo {
 
     pub(crate) fn into_sst_file(self) -> Result<SSTFile> {
         let mut seq_file = self.open()?;
-        let mut buf: [u8; 65536] = unsafe { uninitialized() };
 
         // TODO: If we can compute the CRC simultaneously with upload, we don't
         // need to open() and read() the file twice.
-        let mut digest = crc32::Digest::new(crc32::IEEE);
-        let mut length = 0u64;
-        loop {
-            let size = seq_file.read(&mut buf)?;
-            if size == 0 {
-                break;
-            }
-            digest.write(&buf[..size]);
-            length += size as u64;
-        }
+        let (length, crc32) = compute_reader_crc32(&mut seq_file)?;
 
-        let mut meta = SSTMeta::new();
+        let mut meta = SstMeta::new();
         meta.set_uuid(Uuid::new_v4().as_bytes().to_vec());
         meta.set_range(self.range.clone());
-        meta.set_crc32(digest.sum32());
+        meta.set_crc32(crc32);
         meta.set_length(length);
         meta.set_cf_name(self.cf_name.to_owned());
 
@@ -331,7 +318,7 @@ pub fn get_approximate_ranges(
     ranges
 }
 
-fn tune_dboptions_for_bulk_load(opts: &DbConfig) -> (DBOptions, CFOptions<'_>) {
+pub fn tune_dboptions_for_bulk_load(opts: &DbConfig) -> (DBOptions, CFOptions<'_>) {
     const DISABLED: i32 = i32::MAX;
 
     let mut db_opts = DBOptions::new();
@@ -399,7 +386,7 @@ mod tests {
         let mut wb = WriteBatch::new();
         for i in 0..n {
             let mut m = Mutation::new();
-            m.set_op(Mutation_OP::Put);
+            m.set_op(MutationOp::Put);
             m.set_key(vec![i]);
             m.set_value(vec![i]);
             wb.mut_mutations().push(m);

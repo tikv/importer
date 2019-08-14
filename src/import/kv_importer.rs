@@ -8,13 +8,17 @@ use std::sync::{Arc, Mutex};
 use kvproto::import_kvpb::*;
 use uuid::Uuid;
 
+use backup;
 use tikv::config::DbConfig;
 use tikv_util::collections::HashMap;
 
 use super::client::*;
+use super::common::*;
 use super::engine::*;
 use super::import::*;
 use super::{Config, Error, Result};
+use engine::Iterable;
+use tikv_util::codec::number::NumberEncoder;
 use tikv_util::security::SecurityConfig;
 
 pub struct Inner {
@@ -178,6 +182,43 @@ impl KVImporter {
             }
         }
     }
+
+    pub fn import_file(&self, uuid: Uuid, req: ImportFileRequest) -> Result<()> {
+        let file = req.get_file();
+        let storage = backup::create_storage(req.get_path())?;
+        let mut file_reader = storage.read(file.get_name())?;
+        let (_, crc32) = compute_reader_crc32(&mut file_reader)?;
+        if file.get_crc32() != crc32 {
+            return Ok(());
+        }
+        let engine = {
+            self.open_engine(uuid)?;
+            self.bind_engine(uuid)?
+        };
+        let db = {
+            let mut file_reader = storage.read(file.get_name())?;
+            write_to_temp_db(&mut file_reader, &self.dir.temp_dir, uuid, &self.dir.db_cfg)?
+        };
+        let mut wb = WriteBatch::default();
+        db.scan(
+            &file.get_start_key(),
+            &file.get_end_key(),
+            false,
+            |k: &[u8], v: &[u8]| {
+                // TODO: rewrite keys
+                let mut m = Mutation::new();
+                m.set_op(MutationOp::Put);
+                m.set_key(k.to_vec());
+                m.set_value(v.to_vec());
+                wb.mut_mutations().push(m);
+
+                Ok(true)
+            },
+        );
+        engine.write(wb);
+        self.import_engine(uuid, req.get_pd_addr());
+        self.cleanup_engine(uuid)
+    }
 }
 
 /// EngineDir is responsible for managing engine directories.
@@ -185,10 +226,10 @@ impl KVImporter {
 /// The temporary RocksDB engine is placed in `$root/.temp/$uuid`. After writing
 /// is completed, the files are stored in `$root/$uuid`.
 pub struct EngineDir {
-    db_cfg: DbConfig,
+    pub db_cfg: DbConfig,
     security_cfg: SecurityConfig,
     root_dir: PathBuf,
-    temp_dir: PathBuf,
+    pub temp_dir: PathBuf,
 }
 
 impl EngineDir {

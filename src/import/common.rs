@@ -1,15 +1,26 @@
 // Copyright 2018 TiKV Project Authors. Licensed under Apache-2.0.
 
+use std::fs;
+use std::io;
+use std::mem::MaybeUninit;
 use std::ops::Deref;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use kvproto::import_sstpb::*;
 use kvproto::kvrpcpb::*;
 use kvproto::metapb::*;
 
-use tikv::pd::RegionInfo;
+use crc::crc32::{self, Hasher32};
+use pd_client::RegionInfo;
 
 use super::client::*;
+use super::engine::tune_dboptions_for_bulk_load;
+use super::{Error, Result};
+use engine::rocks::util::new_engine_opt;
+use engine::rocks::{IngestExternalFileOptions, DB};
+use tikv::config::DbConfig;
+use uuid::Uuid;
 
 // Just used as a mark, don't use them in comparison.
 pub const RANGE_MIN: &[u8] = &[];
@@ -130,6 +141,50 @@ pub fn find_region_peer(region: &Region, store_id: u64) -> Option<Peer> {
         .iter()
         .find(|p| p.get_store_id() == store_id)
         .cloned()
+}
+
+pub fn compute_reader_crc32<R: io::Read>(reader: &mut R) -> Result<(u64, u32)> {
+    let mut digest = crc32::Digest::new(crc32::IEEE);
+    let mut length = 0u64;
+    let mut buf: [u8; 65536] = unsafe { MaybeUninit::uninit().assume_init() };
+
+    loop {
+        let size = reader.read(&mut buf)?;
+        if size == 0 {
+            break;
+        }
+        digest.write(&buf[..size]);
+        length += size as u64;
+    }
+    Ok((length, digest.sum32()))
+}
+
+pub fn write_to_temp_db<R: io::Read>(
+    reader: &mut R,
+    temp_dir: &PathBuf,
+    uuid: Uuid,
+    db_cfg: &DbConfig,
+) -> Result<DB> {
+    let sst_file_path = {
+        let path = temp_dir.join(format!("ingest-{}-sst", uuid));
+        if path.exists() {
+            return Err(Error::FileExists(path));
+        }
+        let mut data = Vec::default();
+        reader.read_to_end(&mut data)?;
+        fs::write(&path, &data)?;
+        path
+    };
+    let db = {
+        let db_path = temp_dir.join(format!("ingest-{}", uuid));
+        let (db_opts, cf_opts) = tune_dboptions_for_bulk_load(db_cfg);
+        new_engine_opt(db_path.to_str().unwrap(), db_opts, vec![cf_opts])?
+    };
+    db.ingest_external_file(
+        &IngestExternalFileOptions::new(),
+        &[sst_file_path.to_str().unwrap()],
+    )?;
+    Ok(db)
 }
 
 #[cfg(test)]
