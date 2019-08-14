@@ -9,8 +9,10 @@ use kvproto::import_kvpb::*;
 use uuid::Uuid;
 
 use backup;
+use tidb_query::codec::table;
 use tikv::config::DbConfig;
 use tikv_util::collections::HashMap;
+use tikv_util::codec::number;
 
 use super::client::*;
 use super::common::*;
@@ -18,6 +20,7 @@ use super::engine::*;
 use super::import::*;
 use super::{Config, Error, Result};
 use engine::Iterable;
+use engine::rocks::{self, Writable};
 use tikv_util::codec::number::NumberEncoder;
 use tikv_util::security::SecurityConfig;
 
@@ -184,40 +187,70 @@ impl KVImporter {
     }
 
     pub fn import_file(&self, uuid: Uuid, req: ImportFileRequest) -> Result<()> {
+        self.preimport_file(uuid, req.clone())?;
+        self.close_engine(uuid)?;
+        self.import_engine(uuid, req.get_pd_addr())?;
+        self.cleanup_engine(uuid)
+    }
+
+    pub fn preimport_file(&self, uuid: Uuid, req: ImportFileRequest) -> Result<()> {
         let file = req.get_file();
         let storage = backup::create_storage(req.get_path())?;
+        println!("create storage");
         let mut file_reader = storage.read(file.get_name())?;
+        println!("read remote file");
         let (_, crc32) = compute_reader_crc32(&mut file_reader)?;
         if file.get_crc32() != crc32 {
-            return Ok(());
+            return Err(Error::InvalidChunk);
         }
-        let engine = {
-            self.open_engine(uuid)?;
-            self.bind_engine(uuid)?
-        };
+        self.open_engine(uuid)?;
+        let engine_file = self.bind_engine(uuid)?;
+        let engine = engine_file.engine.as_ref().unwrap();
+
         let db = {
             let mut file_reader = storage.read(file.get_name())?;
             write_to_temp_db(&mut file_reader, &self.dir.temp_dir, uuid, &self.dir.db_cfg)?
         };
-        let mut wb = WriteBatch::default();
+        let mut wb = rocks::WriteBatch::default();
+        let mut table_id_map = HashMap::default();
+        let mut index_id_map = HashMap::default();
+        for p in req.get_table_ids() {
+            let mut id = Vec::default();
+            id.encode_i64(p.get_new_id())?;
+            table_id_map.insert(p.get_old_id(), id);
+        }
+        for p in req.get_index_ids() {
+            let mut id = Vec::default();
+            id.encode_i64(p.get_new_id())?;
+            index_id_map.insert(p.get_old_id(), id);
+        }
         db.scan(
             &file.get_start_key(),
             &file.get_end_key(),
             false,
             |k: &[u8], v: &[u8]| {
+                println!("scan key: {:?}, value: {:?}", k.to_vec(), v.to_vec());
                 // TODO: rewrite keys
-                let mut m = Mutation::new();
-                m.set_op(MutationOp::Put);
-                m.set_key(k.to_vec());
-                m.set_value(v.to_vec());
-                wb.mut_mutations().push(m);
+                let key = k.to_vec();
+//                let mut key = table::TABLE_PREFIX.to_owned();
+//                let table_id = table::decode_table_id(k).unwrap();
+//                key.append(table_id_map.get(&table_id).as_mut().unwrap());
+//                if k[table::TABLE_PREFIX_KEY_LEN..table::PREFIX_LEN] == table::INDEX_PREFIX_SEP {
+//                    let mut index_id_slice = &k[table::PREFIX_LEN..table::PREFIX_LEN+table::ID_LEN];
+//                    let index_id = number::decode_i64(&mut index_id_slice).unwrap();
+//                    key.append(index_id_map.get(&index_id).as_mut().unwrap());
+//                    key.append(&mut k[table::PREFIX_LEN+table::ID_LEN..].to_vec());
+//                } else {
+//                    key.append(&mut k[table::PREFIX_LEN..].to_vec());
+//                }
+
+                wb.put(&key, v);
 
                 Ok(true)
             },
         );
-        engine.write(wb);
-        self.import_engine(uuid, req.get_pd_addr());
-        self.cleanup_engine(uuid)
+        engine.write_without_wal(&wb)?;
+        Ok(())
     }
 }
 
@@ -319,7 +352,7 @@ impl fmt::Debug for EnginePath {
 pub struct EngineFile {
     uuid: Uuid,
     path: EnginePath,
-    engine: Option<Engine>,
+    pub engine: Option<Engine>,
 }
 
 impl EngineFile {
@@ -385,6 +418,10 @@ mod tests {
     use super::*;
 
     use tempdir::TempDir;
+    use backup::{create_storage};
+    use engine::rocks::{SstFileWriter, EnvOptions, Env, ColumnFamilyOptions};
+    use std::path::MAIN_SEPARATOR;
+    use kvproto::backup::*;
 
     #[test]
     fn test_kv_importer() {
@@ -445,5 +482,42 @@ mod tests {
             assert!(!path.temp.exists());
             assert!(!path.save.exists());
         }
+    }
+
+    #[test]
+    fn test_preimport_file() {
+        let temp_dir = TempDir::new("test_kv_importer").unwrap();
+        let mut cfg = Config::default();
+        cfg.import_dir = temp_dir.path().to_str().unwrap().to_owned();
+        let uuid = Uuid::new_v4();
+        let importer =
+            KVImporter::new(cfg, DbConfig::default(), SecurityConfig::default()).unwrap();
+
+        let env = Arc::new(Env::default());
+        let mut cf_opts = ColumnFamilyOptions::default();
+        cf_opts.set_env(env.clone());
+        let mut sst_writer = SstFileWriter::new(EnvOptions::new(), cf_opts);
+        sst_writer.open(&format!("{}{}.{}:default", temp_dir.path().to_str().unwrap(), MAIN_SEPARATOR, uuid)).unwrap();
+        sst_writer.put(b"k0", b"v0").unwrap();
+        let info = sst_writer.finish().unwrap();
+        let mut sst_file = env.new_sequential_file(info.file_path().to_str().unwrap(), EnvOptions::new()).unwrap();
+        let (_, crc32) = compute_reader_crc32(&mut sst_file).unwrap();
+
+        let mut req = ImportFileRequest::default();
+        let mut file = File::default();
+        println!("file_path: {}, file_name: {}",
+                info.file_path().into_os_string().into_string().unwrap(),
+                info.file_path().file_name().unwrap().to_os_string().into_string().unwrap(),
+        );
+        file.set_name(info.file_path().file_name().unwrap().to_os_string().into_string().unwrap());
+        file.set_crc32(crc32);
+        file.set_start_key(b"k0".to_vec());
+        file.set_end_key(b"k1".to_vec());
+        req.set_file(file);
+        req.set_path(format!("local://{}", temp_dir.path().to_str().unwrap()));
+        importer.preimport_file(uuid, req).unwrap();
+        let engine_file = importer.bind_engine(uuid).unwrap();
+        let engine = engine_file.engine.as_ref().unwrap();
+        assert_eq!(engine.get(b"k0").unwrap().unwrap().to_vec(), b"v0");
     }
 }
