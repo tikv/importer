@@ -15,7 +15,7 @@ use tikv::storage::types::Key;
 use tikv_util::time::Instant;
 
 use super::client::*;
-use super::metrics::*;
+use super::metrics::{self, *};
 use super::service::*;
 use super::{Config, Error, KVImporter};
 use crate::send_rpc_response;
@@ -286,6 +286,54 @@ impl ImportKv for ImportKVService {
                     }
                 })
                 .map(|_| CompactClusterResponse::new())
+                .then(move |res| send_rpc_response!(res, sink, label, timer)),
+        )
+    }
+
+    fn get_version(
+        &mut self,
+        ctx: RpcContext<'_>,
+        _req: GetVersionRequest,
+        sink: UnarySink<GetVersionResponse>,
+    ) {
+        let label = "get_version";
+        let timer = Instant::now_coarse();
+        let import = Arc::clone(&self.importer);
+
+        ctx.spawn(
+            self.threads
+                .spawn_fn(|| {
+                    Ok((env!("CARGO_PKG_VERSION"), env!("TIKV_BUILD_GIT_HASH")))
+                })
+                .map(|(v, c)| {
+                    let mut res = GetVersionResponse::new();
+                    res.set_version(v.to_owned());
+                    res.set_commit(c.to_owned());
+                    res
+                })
+                .then(move |res| send_rpc_response!(res, sink, label, timer)),
+        )
+    }
+
+    fn get_metrics(
+        &mut self,
+        ctx: RpcContext<'_>,
+        _req: GetMetricsRequest,
+        sink: UnarySink<GetMetricsResponse>,
+    ) {
+        let label = "get_metrics";
+        let timer = Instant::now_coarse();
+
+        ctx.spawn(
+            self.threads
+                .spawn_fn(|| {
+                    Ok(metrics::dump())
+                })
+                .map(|v| {
+                    let mut res = GetMetricsResponse::new();
+                    res.set_prometheus(v);
+                    res
+                })
                 .then(move |res| send_rpc_response!(res, sink, label, timer)),
         )
     }

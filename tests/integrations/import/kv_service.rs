@@ -3,6 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use clap::crate_version;
 use futures::{stream, Future, Stream};
 use tempdir::TempDir;
 use uuid::Uuid;
@@ -40,6 +41,14 @@ fn new_kv_server() -> (ImportKVServer, ImportKvClient, TempDir) {
 fn test_kv_service() {
     let (mut server, client, _) = new_kv_server();
     server.start();
+
+    let resp = retry!(client.get_version(&GetVersionRequest::new())).unwrap();
+    assert_eq!(resp.get_version(), crate_version!());
+    assert_eq!(resp.get_commit().len(), 40);
+
+    let resp = retry!(client.get_metrics(&GetMetricsRequest::new())).unwrap();
+    // It's true since we just send a get_version rpc
+    assert!(resp.get_prometheus().contains("request=\"get_version\",result=\"ok\""));
 
     let uuid = Uuid::new_v4().as_bytes().to_vec();
     let mut head = WriteHead::new();
