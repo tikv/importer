@@ -298,7 +298,6 @@ impl ImportKv for ImportKVService {
     ) {
         let label = "get_version";
         let timer = Instant::now_coarse();
-        let import = Arc::clone(&self.importer);
 
         ctx.spawn(
             self.threads
