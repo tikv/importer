@@ -7,6 +7,7 @@ use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use kvproto::import_kvpb::*;
 use kvproto::import_sstpb::*;
 use kvproto::kvrpcpb::*;
 use kvproto::metapb::*;
@@ -19,7 +20,12 @@ use super::engine::tune_dboptions_for_bulk_load;
 use super::{Error, Result};
 use engine::rocks::util::new_engine_opt;
 use engine::rocks::{IngestExternalFileOptions, DB};
+use tidb_query::codec::table;
 use tikv::config::DbConfig;
+use tikv::storage::types::Key;
+use tikv_util::codec::number;
+use tikv_util::codec::number::NumberEncoder;
+use tikv_util::collections::HashMap;
 use uuid::Uuid;
 
 // Just used as a mark, don't use them in comparison.
@@ -185,6 +191,52 @@ pub fn write_to_temp_db<R: io::Read>(
         &[sst_file_path.to_str().unwrap()],
     )?;
     Ok(db)
+}
+
+pub fn replace_ids_in_key(k: &[u8], table_ids: &[IdPair], index_ids: &[IdPair]) -> Result<Vec<u8>> {
+    let mut table_id_map = HashMap::default();
+    let mut index_id_map = HashMap::default();
+    for p in table_ids {
+        let mut id = Vec::default();
+        id.encode_i64(p.get_new_id())?;
+        table_id_map.insert(p.get_old_id(), id);
+    }
+    for p in index_ids {
+        let mut id = Vec::default();
+        id.encode_i64(p.get_new_id())?;
+        index_id_map.insert(p.get_old_id(), id);
+    }
+
+    // TiDB record key format: t{table_id}_r{handle}
+    // TiDB index key format: t{table_id}_i{index_id}_...
+    // After receiving a key-value pair, TiKV would encode the key to mark it as data
+    // key, then we must convert a key to a raw key before we parse it.
+    let old_key = Key::from_encoded(k.to_vec()).into_raw()?;
+    let mut new_key = table::TABLE_PREFIX.to_owned();
+    let table_id = table::decode_table_id(&old_key)?;
+    new_key.append(
+        &mut table_id_map
+            .get(&table_id)
+            .ok_or(Error::ImportFileFailed("unexpected table id".to_string()))?
+            .clone(),
+    );
+    let key_type_prefix = &old_key[table::TABLE_PREFIX_KEY_LEN..table::PREFIX_LEN];
+    if key_type_prefix == table::INDEX_PREFIX_SEP {
+        new_key.extend_from_slice(table::INDEX_PREFIX_SEP);
+        let mut index_id_slice = &old_key[table::PREFIX_LEN..table::PREFIX_LEN + table::ID_LEN];
+        let index_id = number::decode_i64(&mut index_id_slice)?;
+        new_key.append(
+            &mut index_id_map
+                .get(&index_id)
+                .ok_or(Error::ImportFileFailed("unexpected index id".to_string()))?
+                .clone(),
+        );
+        new_key.extend_from_slice(&old_key[table::PREFIX_LEN + table::ID_LEN..]);
+    } else {
+        new_key.extend_from_slice(&old_key[table::TABLE_PREFIX_KEY_LEN..]);
+    }
+
+    Ok(Key::from_raw(&new_key).into_encoded())
 }
 
 #[cfg(test)]

@@ -13,6 +13,7 @@ use quick_error::quick_error;
 use uuid::{ParseError, Uuid};
 
 use pd_client::{Error as PdError, RegionInfo};
+use tidb_query::codec::Error as TableCodecError;
 use tikv::raftstore::errors::Error as RaftStoreError;
 use tikv_util::codec::Error as CodecError;
 
@@ -35,6 +36,11 @@ quick_error! {
             description(err.description())
         }
         Codec(err: CodecError) {
+            from()
+            cause(err)
+            description(err.description())
+        }
+        TableCodec(err: TableCodecError) {
             from()
             cause(err)
             description(err.description())
@@ -105,6 +111,9 @@ quick_error! {
             display("{}", tag)
         }
         ResourceTemporarilyUnavailable(msg: String) {
+            display("{}", msg)
+        }
+        ImportFileFailed(msg: String) {
             display("{}", msg)
         }
     }
