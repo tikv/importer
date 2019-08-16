@@ -215,6 +215,7 @@ impl KVImporter {
         let end_key = keys::data_key(file.get_end_key());
         iter_opts.set_iterate_lower_bound(start_key.clone());
         iter_opts.set_iterate_upper_bound(end_key);
+        info!("start import file"; "name" => file.get_name(), "start_key" => hex::encode_upper(start_key), "end_key" => hex::encode_upper(end_key));
         iter_opts.fill_cache(false);
         let mut iter = DBIterator::new(&db, iter_opts);
         iter.seek(start_key.as_slice().into());
@@ -228,6 +229,7 @@ impl KVImporter {
             } else {
                 iter.key().to_vec()
             };
+            info!("put key to writebatch"; "old" => hex::encode_upper(iter.key()), "new" => hex::encode_upper(key));
             wb.put(&key, iter.value())?;
             if !iter.next() {
                 break;
