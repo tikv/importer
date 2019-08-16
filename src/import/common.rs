@@ -212,7 +212,9 @@ pub fn replace_ids_in_key(k: &[u8], table_ids: &[IdPair], index_ids: &[IdPair]) 
     // TiDB index key format: t{table_id}_i{index_id}_...
     // After receiving a key-value pair, TiKV would encode the key , then we must convert a key
     // to a raw key before we parse it.
-    let old_key = Key::from_encoded(k.to_vec()).into_raw()?;
+    let old_key = Key::from_encoded(k.to_vec());
+    let ts = old_key.decode_ts()?;
+    let old_key = old_key.into_raw()?;
     let mut new_key = table::TABLE_PREFIX.to_owned();
     if !old_key.starts_with(table::TABLE_PREFIX) {
         return Ok(Some(k.to_vec()));
@@ -241,7 +243,8 @@ pub fn replace_ids_in_key(k: &[u8], table_ids: &[IdPair], index_ids: &[IdPair]) 
         new_key.extend_from_slice(&old_key[table::TABLE_PREFIX_KEY_LEN..]);
     }
 
-    Ok(Some(Key::from_raw(&new_key).into_encoded()))
+    info!("replace id"; "old" => hex::encode_upper(&old_key), "new" => hex::encode_upper(&new_key));
+    Ok(Some(Key::from_raw(&new_key).append_ts(ts).into_encoded()))
 }
 
 #[cfg(test)]

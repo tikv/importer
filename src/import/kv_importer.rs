@@ -230,9 +230,9 @@ impl KVImporter {
             } else {
                 Some(iter.key().to_vec())
             };
-            info!("put key to writebatch"; "old" => hex::encode_upper(iter.key()), "new" => hex::encode_upper(&key));
             if key.is_some() {
-                wb.put(&key.unwrap(), iter.value())?;
+                wb.put(key.as_ref().unwrap(), iter.value())?;
+                info!("put key to writebatch"; "old" => hex::encode_upper(iter.key()), "new" => hex::encode_upper(&key.unwrap()));
             }
             if !iter.next() {
                 break;
