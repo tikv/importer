@@ -210,17 +210,20 @@ impl KVImporter {
 
         let wb = rocks::WriteBatch::default();
         let mut iter_opts = ReadOptions::default();
-        let start_key = keys::data_key(&Key::from_raw(file.get_start_key()).into_encoded());
-        let end_key = keys::data_key(&Key::from_raw(file.get_end_key()).into_encoded());
+        // start_key & end_key member of File is encoded keys without the DATA_PREFIX
+        let start_key = keys::data_key(file.get_start_key());
+        let end_key = keys::data_key(file.get_end_key());
         iter_opts.set_iterate_lower_bound(start_key.clone());
         iter_opts.set_iterate_upper_bound(end_key);
         iter_opts.fill_cache(false);
         let mut iter = DBIterator::new(&db, iter_opts);
-        iter.seek(start_key.into());
+        iter.seek(start_key.as_slice().into());
         while iter.valid() {
             let key = if req.get_mode() == ImportFileRequestMode::Txn {
+                // keys in sst file is encoded key with the DATA_PREFIX, should remove the
+                // DATA_PREFIX before replacing ids of a key
                 keys::data_key(
-                    replace_ids_in_key(keys::origin_key(iter.key()), req.get_table_ids(), req.get_index_ids())?
+                    &replace_ids_in_key(keys::origin_key(iter.key()), req.get_table_ids(), req.get_index_ids())?
                 )
             } else {
                 iter.key().to_vec()
