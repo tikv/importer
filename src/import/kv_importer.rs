@@ -211,11 +211,11 @@ impl KVImporter {
         let wb = rocks::WriteBatch::default();
         let mut iter_opts = ReadOptions::default();
         // start_key & end_key member of File is encoded keys without the DATA_PREFIX
-        let start_key = keys::data_key(file.get_start_key());
-        let end_key = keys::data_key(file.get_end_key());
+        let start_key = keys::data_key(&Key::from_raw(file.get_start_key()).into_encoded());
+        let end_key = keys::data_key(&Key::from_raw(file.get_end_key()).into_encoded());
         iter_opts.set_iterate_lower_bound(start_key.clone());
-        iter_opts.set_iterate_upper_bound(end_key);
-        info!("start import file"; "name" => file.get_name(), "start_key" => hex::encode_upper(start_key), "end_key" => hex::encode_upper(end_key));
+        iter_opts.set_iterate_upper_bound(end_key.clone());
+        info!("start import file"; "name" => file.get_name(), "start_key" => hex::encode_upper(&start_key), "end_key" => hex::encode_upper(&end_key));
         iter_opts.fill_cache(false);
         let mut iter = DBIterator::new(&db, iter_opts);
         iter.seek(start_key.as_slice().into());
@@ -223,14 +223,17 @@ impl KVImporter {
             let key = if req.get_mode() == ImportFileRequestMode::Txn {
                 // keys in sst file is encoded key with the DATA_PREFIX, should remove the
                 // DATA_PREFIX before replacing ids of a key
-                keys::data_key(
-                    &replace_ids_in_key(keys::origin_key(iter.key()), req.get_table_ids(), req.get_index_ids())?
-                )
+                match replace_ids_in_key(keys::origin_key(iter.key()), req.get_table_ids(), req.get_index_ids())? {
+                    Some(key) => Some(keys::data_key(&key)),
+                    None => None
+                }
             } else {
-                iter.key().to_vec()
+                Some(iter.key().to_vec())
             };
-            info!("put key to writebatch"; "old" => hex::encode_upper(iter.key()), "new" => hex::encode_upper(key));
-            wb.put(&key, iter.value())?;
+            info!("put key to writebatch"; "old" => hex::encode_upper(iter.key()), "new" => hex::encode_upper(&key));
+            if key.is_some() {
+                wb.put(&key.unwrap(), iter.value())?;
+            }
             if !iter.next() {
                 break;
             }
@@ -565,7 +568,7 @@ mod tests {
 
         assert_eq!(
             engine
-                .get(&keys::data_key(&Key::from_raw(&get_key1).into_encoded()))
+                .get(&keys::data_key(&get_key1))
                 .unwrap()
                 .unwrap()
                 .to_vec(),
@@ -573,7 +576,7 @@ mod tests {
         );
         assert_eq!(
             engine
-                .get(&keys::data_key(&Key::from_raw(&get_key2).into_encoded()))
+                .get(&keys::data_key(&get_key2))
                 .unwrap()
                 .unwrap()
                 .to_vec(),

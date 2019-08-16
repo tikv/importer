@@ -194,7 +194,7 @@ pub fn write_to_temp_db<R: io::Read>(
     Ok(db)
 }
 
-pub fn replace_ids_in_key(k: &[u8], table_ids: &[IdPair], index_ids: &[IdPair]) -> Result<Vec<u8>> {
+pub fn replace_ids_in_key(k: &[u8], table_ids: &[IdPair], index_ids: &[IdPair]) -> Result<Option<Vec<u8>>> {
     let mut table_id_map = HashMap::default();
     let mut index_id_map = HashMap::default();
     for p in table_ids {
@@ -215,18 +215,16 @@ pub fn replace_ids_in_key(k: &[u8], table_ids: &[IdPair], index_ids: &[IdPair]) 
     let old_key = Key::from_encoded(k.to_vec()).into_raw()?;
     let mut new_key = table::TABLE_PREFIX.to_owned();
     if !old_key.starts_with(table::TABLE_PREFIX) {
-        return Ok(k.to_vec());
+        return Ok(Some(k.to_vec()));
     }
     let table_id = {
         let mut remaining = &old_key[table::TABLE_PREFIX.len()..];
         number::decode_i64(&mut remaining)?
     };
-    new_key.append(
-        &mut table_id_map
-            .get(&table_id)
-            .ok_or(Error::ImportFileFailed("unexpected table id".to_string()))?
-            .clone(),
-    );
+    match table_id_map.get(&table_id) {
+        Some(id) => new_key.extend_from_slice(id.as_slice()),
+        None => return Ok(None)
+    }
     let key_type_prefix = &old_key[table::TABLE_PREFIX_KEY_LEN..table::PREFIX_LEN];
     if key_type_prefix == table::INDEX_PREFIX_SEP {
         new_key.extend_from_slice(table::INDEX_PREFIX_SEP);
@@ -243,7 +241,7 @@ pub fn replace_ids_in_key(k: &[u8], table_ids: &[IdPair], index_ids: &[IdPair]) 
         new_key.extend_from_slice(&old_key[table::TABLE_PREFIX_KEY_LEN..]);
     }
 
-    Ok(Key::from_raw(&new_key).into_encoded())
+    Ok(Some(Key::from_raw(&new_key).into_encoded()))
 }
 
 #[cfg(test)]
