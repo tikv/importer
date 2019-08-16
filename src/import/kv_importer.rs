@@ -497,25 +497,31 @@ mod tests {
             ))
             .unwrap();
 
+        // t0_r0
         let mut encoded_zero = Vec::default();
         encoded_zero.encode_i64(0).unwrap();
+        let mut encoded_zero_desc = Vec::default();
+        encoded_zero_desc.encode_i64_desc(0).unwrap();
         let mut put_key1 = Vec::default();
         put_key1.extend_from_slice(table::TABLE_PREFIX);
         put_key1.extend_from_slice(encoded_zero.as_slice());
         put_key1.extend_from_slice(table::RECORD_PREFIX_SEP);
         put_key1.extend_from_slice(encoded_zero.as_slice());
+        put_key1.extend_from_slice(encoded_zero_desc.as_slice());
 
+        // t0_i0
         let mut put_key2 = Vec::default();
         put_key2.extend_from_slice(table::TABLE_PREFIX);
         put_key2.extend_from_slice(encoded_zero.as_slice());
         put_key2.extend_from_slice(table::INDEX_PREFIX_SEP);
         put_key2.extend_from_slice(encoded_zero.as_slice());
+        put_key2.extend_from_slice(encoded_zero_desc.as_slice());
 
         sst_writer
-            .put(&keys::data_key(&Key::from_raw(&put_key2).into_encoded()), b"v1")
+            .put(&keys::data_key(&Key::from_raw(&put_key2).append_ts(0).into_encoded()), b"v1")
             .unwrap();
         sst_writer
-            .put(&keys::data_key(&Key::from_raw(&put_key1).into_encoded()), b"v0")
+            .put(&keys::data_key(&Key::from_raw(&put_key1).append_ts(0).into_encoded()), b"v0")
             .unwrap();
 
         let info = sst_writer.finish().unwrap();
@@ -552,6 +558,7 @@ mod tests {
         let engine_file = importer.bind_engine(uuid).unwrap();
         let engine = engine_file.engine.as_ref().unwrap();
 
+        // t1_r0
         let mut encoded_one = Vec::default();
         encoded_one.encode_i64(1).unwrap();
         let mut get_key1 = Vec::default();
@@ -559,16 +566,19 @@ mod tests {
         get_key1.extend_from_slice(encoded_one.as_slice());
         get_key1.extend_from_slice(table::RECORD_PREFIX_SEP);
         get_key1.extend_from_slice(encoded_zero.as_slice());
+        get_key1.extend_from_slice(encoded_zero_desc.as_slice());
 
+        // t1_i10
         let mut get_key2 = Vec::default();
         get_key2.extend_from_slice(table::TABLE_PREFIX);
         get_key2.extend_from_slice(encoded_one.as_slice());
         get_key2.extend_from_slice(table::INDEX_PREFIX_SEP);
         get_key2.extend_from_slice(encoded_one.as_slice());
+        get_key2.extend_from_slice(encoded_zero_desc.as_slice());
 
         assert_eq!(
             engine
-                .get(&keys::data_key(&get_key1))
+                .get(&keys::data_key(&Key::from_raw(&get_key1).append_ts(0).into_encoded()))
                 .unwrap()
                 .unwrap()
                 .to_vec(),
@@ -576,7 +586,7 @@ mod tests {
         );
         assert_eq!(
             engine
-                .get(&keys::data_key(&get_key2))
+                .get(&keys::data_key(&Key::from_raw(&get_key2).append_ts(0).into_encoded()))
                 .unwrap()
                 .unwrap()
                 .to_vec(),

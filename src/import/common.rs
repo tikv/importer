@@ -201,11 +201,13 @@ pub fn replace_ids_in_key(k: &[u8], table_ids: &[IdPair], index_ids: &[IdPair]) 
         let mut id = Vec::default();
         id.encode_i64(p.get_new_id())?;
         table_id_map.insert(p.get_old_id(), id);
+        info!("table id pair"; "old" => p.get_old_id(), "new" => p.get_new_id());
     }
     for p in index_ids {
         let mut id = Vec::default();
         id.encode_i64(p.get_new_id())?;
         index_id_map.insert(p.get_old_id(), id);
+        info!("index id pair"; "old" => p.get_old_id(), "new" => p.get_new_id());
     }
 
     // TiDB record key format: t{table_id}_r{handle}
