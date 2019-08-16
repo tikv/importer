@@ -11,6 +11,7 @@ use uuid::Uuid;
 use backup;
 use tikv::config::DbConfig;
 use tikv::storage::types::Key;
+use tikv::raftstore::store::keys;
 use tikv_util::collections::HashMap;
 
 use super::client::*;
@@ -209,19 +210,18 @@ impl KVImporter {
 
         let wb = rocks::WriteBatch::default();
         let mut iter_opts = ReadOptions::default();
-        iter_opts.set_iterate_lower_bound(Key::from_raw(file.get_start_key()).into_encoded());
-        iter_opts.set_iterate_upper_bound(Key::from_raw(file.get_end_key()).into_encoded());
+        let start_key = keys::data_key(&Key::from_raw(file.get_start_key()).into_encoded());
+        let end_key = keys::data_key(&Key::from_raw(file.get_end_key()).into_encoded());
+        iter_opts.set_iterate_lower_bound(start_key.clone());
+        iter_opts.set_iterate_upper_bound(end_key);
         iter_opts.fill_cache(false);
         let mut iter = DBIterator::new(&db, iter_opts);
-        iter.seek(
-            Key::from_raw(file.get_start_key())
-                .into_encoded()
-                .as_slice()
-                .into(),
-        );
+        iter.seek(start_key.into());
         while iter.valid() {
             let key = if req.get_mode() == ImportFileRequestMode::Txn {
-                replace_ids_in_key(iter.key(), req.get_table_ids(), req.get_index_ids())?
+                keys::data_key(
+                    replace_ids_in_key(keys::origin_key(iter.key()), req.get_table_ids(), req.get_index_ids())?
+                )
             } else {
                 iter.key().to_vec()
             };
@@ -504,10 +504,10 @@ mod tests {
         put_key2.extend_from_slice(encoded_zero.as_slice());
 
         sst_writer
-            .put(&Key::from_raw(&put_key2).into_encoded(), b"v1")
+            .put(&keys::data_key(&Key::from_raw(&put_key2).into_encoded()), b"v1")
             .unwrap();
         sst_writer
-            .put(&Key::from_raw(&put_key1).into_encoded(), b"v0")
+            .put(&keys::data_key(&Key::from_raw(&put_key1).into_encoded()), b"v0")
             .unwrap();
 
         let info = sst_writer.finish().unwrap();
@@ -560,7 +560,7 @@ mod tests {
 
         assert_eq!(
             engine
-                .get(&Key::from_raw(&get_key1).into_encoded())
+                .get(&keys::data_key(&Key::from_raw(&get_key1).into_encoded()))
                 .unwrap()
                 .unwrap()
                 .to_vec(),
@@ -568,7 +568,7 @@ mod tests {
         );
         assert_eq!(
             engine
-                .get(&Key::from_raw(&get_key2).into_encoded())
+                .get(&keys::data_key(&Key::from_raw(&get_key2).into_encoded()))
                 .unwrap()
                 .unwrap()
                 .to_vec(),

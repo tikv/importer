@@ -23,6 +23,7 @@ use engine::rocks::{IngestExternalFileOptions, DB};
 use tidb_query::codec::table;
 use tikv::config::DbConfig;
 use tikv::storage::types::Key;
+use tikv::raftstore::store::keys;
 use tikv_util::codec::number;
 use tikv_util::codec::number::NumberEncoder;
 use tikv_util::collections::HashMap;
