@@ -1,29 +1,23 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use engine::rocks::util::{get_cf_handle, new_engine_opt};
-use engine::rocks::{self, IngestExternalFileOptions, Writable, DB};
-use hex;
-use kvproto::backup::*;
+use engine::rocks::{IngestExternalFileOptions, Writable, DB};
 use kvproto::import_kvpb::*;
 use storage;
 use tikv::config::DbConfig;
 use tikv::raftstore::store::keys;
-use tikv::storage::types::Key;
-use engine::{CF_DEFAULT, CF_WRITE, WriteOptions};
+use engine::{CF_DEFAULT, CF_WRITE};
 use storage::Storage;
 use tikv::storage::mvcc::Write;
 use uuid::Uuid;
 use tikv_util::collections::HashMap;
 use tikv_util::codec::number::NumberEncoder;
 
-use super::client::*;
 use super::common::*;
 use super::engine::*;
-use super::import::*;
-use super::{Config, Error, Result};
+use super::{Error, Result};
 
 pub struct RewriteKeysJob {
     uuid: Uuid,
@@ -43,14 +37,13 @@ impl RewriteKeysJob {
     pub fn run(&self) -> Result<WriteBatch> {
         let db = self.write_files_to_temp_db()?;
 
-        let default_wb = self.rewrite_file_keys(&db, CF_DEFAULT, self.req.get_default())?;
+        let default_wb = self.rewrite_keys(&db, CF_DEFAULT)?;
         Ok(default_wb)
     }
 
-    fn rewrite_file_keys(&self, db: &DB, cf: &str, file: &File) -> Result<WriteBatch> {
+    fn rewrite_keys(&self, db: &DB, cf: &str) -> Result<WriteBatch> {
         let mut wb = WriteBatch::default();
         wb.set_commit_ts(self.req.get_restore_ts());
-        let cf_handle = get_cf_handle(db, cf)?;
 
         let mut table_ids = HashMap::default();
         let mut index_ids = HashMap::default();
@@ -58,13 +51,11 @@ impl RewriteKeysJob {
             let mut id = Vec::default();
             id.encode_i64(p.get_new_id())?;
             table_ids.insert(p.get_old_id(), id);
-            info!("table id pair"; "old" => p.get_old_id(), "new" => p.get_new_id());
         }
         for p in self.req.get_index_ids() {
             let mut id = Vec::default();
             id.encode_i64(p.get_new_id())?;
             index_ids.insert(p.get_old_id(), id);
-            info!("index id pair"; "old" => p.get_old_id(), "new" => p.get_new_id());
         }
 
         scan_db_cf(&db, cf, &[], &[], |k, v| {
@@ -129,7 +120,6 @@ impl RewriteKeysJob {
             let w = Write::parse(v)
                 .map_err(|_| Error::RestoreFileFailed("parse write cf error".to_string()))?;
             if w.short_value.is_some() {
-                info!("short value"; "key" => hex::encode_upper(k));
                 db.put_cf(default_cf_handle, k, &w.short_value.unwrap())?;
             }
             Ok(true)
@@ -157,65 +147,5 @@ impl RewriteKeysJob {
         file_reader.read_to_end(&mut data)?;
         fs::write(&path, &data)?;
         Ok(path)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::import::restore::RewriteKeysJob;
-    use uuid::Uuid;
-    use tempdir::TempDir;
-    use tidb_query::codec::table;
-    use tikv_util::codec::number::NumberEncoder;
-    use tikv::storage::mvcc::{Write, WriteType};
-    use engine::rocks::{SstFileWriter, EnvOptions, ColumnFamilyOptions};
-    use tikv::storage::types::Key;
-    use tikv::raftstore::store::keys;
-
-    #[test]
-    fn test_short_value() {
-        let uuid = Uuid::new_v4();
-        let temp_dir = TempDir::new("test_kv_importer").unwrap();
-
-        // t0_r0
-        let mut encoded_zero = Vec::default();
-        encoded_zero.encode_i64(0).unwrap();
-        let mut encoded_zero_desc = Vec::default();
-        encoded_zero_desc.encode_i64_desc(0).unwrap();
-        let mut default_key = Vec::default();
-        default_key.extend_from_slice(table::TABLE_PREFIX);
-        default_key.extend_from_slice(encoded_zero.as_slice());
-        default_key.extend_from_slice(table::RECORD_PREFIX_SEP);
-        default_key.extend_from_slice(encoded_zero.as_slice());
-        default_key.extend_from_slice(encoded_zero_desc.as_slice());
-
-        // t0_i0
-        let mut index_key = Vec::default();
-        index_key.extend_from_slice(table::TABLE_PREFIX);
-        index_key.extend_from_slice(encoded_zero.as_slice());
-        index_key.extend_from_slice(table::INDEX_PREFIX_SEP);
-        index_key.extend_from_slice(encoded_zero.as_slice());
-        index_key.extend_from_slice(encoded_zero_desc.as_slice());
-
-        let w = Write::new(WriteType::Put, 0, Some(encoded_zero.clone()));
-
-        let mut cf_opts = ColumnFamilyOptions::default();
-        cf_opts.set_env(env.clone());
-        let mut default_sst_writer = SstFileWriter::new(EnvOptions::new(), cf_opts.clone());
-        default_sst_writer
-            .put(
-                &keys::data_key(&Key::from_raw(&default_key).append_ts(0).into_encoded()),
-                b"v0",
-            )
-            .unwrap();
-        let mut write_sst_writer = SstFileWriter::new(EnvOptions::new(), cf_opts);
-        write_sst_writer
-            .put(
-                &keys::data_key(&Key::from_raw(&index_key).append_ts(0).into_encoded()),
-                &w.to_bytes(),
-            )
-            .unwrap();
-
-        RewriteKeysJob::new(uuid, )
     }
 }

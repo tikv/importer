@@ -10,13 +10,13 @@ use uuid::Uuid;
 
 use tikv::config::DbConfig;
 use tikv_util::collections::HashMap;
+use tikv_util::security::SecurityConfig;
 
 use super::client::*;
 use super::engine::*;
 use super::import::*;
 use super::restore::*;
 use super::{Config, Error, Result};
-use tikv_util::security::SecurityConfig;
 
 pub struct Inner {
     engines: HashMap<Uuid, Arc<EngineFile>>,
@@ -376,12 +376,7 @@ impl fmt::Debug for EngineFile {
 mod tests {
     use super::*;
 
-    use engine::rocks::{ColumnFamilyOptions, Env, EnvOptions, SstFileWriter};
-    use kvproto::backup::*;
-    use std::path::MAIN_SEPARATOR;
     use tempdir::TempDir;
-    use tidb_query::codec::table;
-    use tikv_util::codec::number::NumberEncoder;
 
     #[test]
     fn test_kv_importer() {
@@ -442,134 +437,5 @@ mod tests {
             assert!(!path.temp.exists());
             assert!(!path.save.exists());
         }
-    }
-
-    #[test]
-    fn test_preimport_file() {
-        let temp_dir = TempDir::new("test_kv_importer").unwrap();
-        let mut cfg = Config::default();
-        cfg.import_dir = temp_dir.path().to_str().unwrap().to_owned();
-        let uuid = Uuid::new_v4();
-        let importer =
-            KVImporter::new(cfg, DbConfig::default(), SecurityConfig::default()).unwrap();
-
-        let env = Arc::new(Env::default());
-        let mut cf_opts = ColumnFamilyOptions::default();
-        cf_opts.set_env(env.clone());
-        let mut sst_writer = SstFileWriter::new(EnvOptions::new(), cf_opts);
-        sst_writer
-            .open(&format!(
-                "{}{}.{}:default",
-                temp_dir.path().to_str().unwrap(),
-                MAIN_SEPARATOR,
-                uuid
-            ))
-            .unwrap();
-
-        // t0_r0
-        let mut encoded_zero = Vec::default();
-        encoded_zero.encode_i64(0).unwrap();
-        let mut encoded_zero_desc = Vec::default();
-        encoded_zero_desc.encode_i64_desc(0).unwrap();
-        let mut put_key1 = Vec::default();
-        put_key1.extend_from_slice(table::TABLE_PREFIX);
-        put_key1.extend_from_slice(encoded_zero.as_slice());
-        put_key1.extend_from_slice(table::RECORD_PREFIX_SEP);
-        put_key1.extend_from_slice(encoded_zero.as_slice());
-        put_key1.extend_from_slice(encoded_zero_desc.as_slice());
-
-        // t0_i0
-        let mut put_key2 = Vec::default();
-        put_key2.extend_from_slice(table::TABLE_PREFIX);
-        put_key2.extend_from_slice(encoded_zero.as_slice());
-        put_key2.extend_from_slice(table::INDEX_PREFIX_SEP);
-        put_key2.extend_from_slice(encoded_zero.as_slice());
-        put_key2.extend_from_slice(encoded_zero_desc.as_slice());
-
-        sst_writer
-            .put(
-                &keys::data_key(&Key::from_raw(&put_key2).append_ts(0).into_encoded()),
-                b"v1",
-            )
-            .unwrap();
-        sst_writer
-            .put(
-                &keys::data_key(&Key::from_raw(&put_key1).append_ts(0).into_encoded()),
-                b"v0",
-            )
-            .unwrap();
-
-        let info = sst_writer.finish().unwrap();
-        let mut sst_file = env
-            .new_sequential_file(info.file_path().to_str().unwrap(), EnvOptions::new())
-            .unwrap();
-        let (_, crc32) = compute_reader_crc32(&mut sst_file).unwrap();
-
-        let mut req = ImportFileRequest::default();
-        let mut file = File::default();
-        file.set_name(
-            info.file_path()
-                .file_name()
-                .unwrap()
-                .to_os_string()
-                .into_string()
-                .unwrap(),
-        );
-        put_key1.extend_from_slice(&[0]);
-        file.set_crc32(crc32);
-        file.set_start_key(put_key2);
-        file.set_end_key(put_key1);
-        let mut ids = IdPair::new();
-        ids.set_old_id(0);
-        ids.set_new_id(1);
-        req.set_file(file);
-        req.set_path(format!("local://{}", temp_dir.path().to_str().unwrap()));
-        req.set_mode(ImportFileRequestMode::Txn);
-        req.mut_table_ids().push(ids.clone());
-        req.mut_index_ids().push(ids);
-
-        importer.preimport_file(uuid, req).unwrap();
-
-        let engine_file = importer.bind_engine(uuid).unwrap();
-        let engine = engine_file.engine.as_ref().unwrap();
-
-        // t1_r0
-        let mut encoded_one = Vec::default();
-        encoded_one.encode_i64(1).unwrap();
-        let mut get_key1 = Vec::default();
-        get_key1.extend_from_slice(table::TABLE_PREFIX);
-        get_key1.extend_from_slice(encoded_one.as_slice());
-        get_key1.extend_from_slice(table::RECORD_PREFIX_SEP);
-        get_key1.extend_from_slice(encoded_zero.as_slice());
-        get_key1.extend_from_slice(encoded_zero_desc.as_slice());
-
-        // t1_i10
-        let mut get_key2 = Vec::default();
-        get_key2.extend_from_slice(table::TABLE_PREFIX);
-        get_key2.extend_from_slice(encoded_one.as_slice());
-        get_key2.extend_from_slice(table::INDEX_PREFIX_SEP);
-        get_key2.extend_from_slice(encoded_one.as_slice());
-        get_key2.extend_from_slice(encoded_zero_desc.as_slice());
-
-        assert_eq!(
-            engine
-                .get(&keys::data_key(
-                    &Key::from_raw(&get_key1).append_ts(0).into_encoded()
-                ))
-                .unwrap()
-                .unwrap()
-                .to_vec(),
-            b"v0"
-        );
-        assert_eq!(
-            engine
-                .get(&keys::data_key(
-                    &Key::from_raw(&get_key2).append_ts(0).into_encoded()
-                ))
-                .unwrap()
-                .unwrap()
-                .to_vec(),
-            b"v1"
-        );
     }
 }

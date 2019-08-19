@@ -75,7 +75,6 @@ impl Engine {
                 MutationOp::Put => {
                     let k = Key::from_raw(m.get_key()).append_ts(commit_ts);
                     wb.put(k.as_encoded(), m.get_value()).unwrap();
-                    info!("put key to writebatch"; "key" => hex::encode_upper(k.as_encoded()));
                 }
             }
         }
@@ -252,15 +251,12 @@ impl SSTWriter {
         if is_short_value(value) {
             let w = Write::new(WriteType::Put, commit_ts, Some(value.to_vec()));
             self.write.put(&k, &w.to_bytes())?;
-            info!("put key to writecf"; "key" => hex::encode_upper(&k));
             self.write_entries += 1;
         } else {
             let w = Write::new(WriteType::Put, commit_ts, None);
             self.write.put(&k, &w.to_bytes())?;
-            info!("put key to writecf"; "key" => hex::encode_upper(&k));
             self.write_entries += 1;
             self.default.put(&k, value)?;
-            info!("put key to defaultcf"; "key" => hex::encode_upper(&k));
             self.default_entries += 1;
         }
         Ok(())

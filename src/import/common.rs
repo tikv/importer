@@ -5,7 +5,6 @@ use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use kvproto::import_kvpb::*;
 use kvproto::import_sstpb::*;
 use kvproto::kvrpcpb::*;
 use kvproto::metapb::*;
@@ -21,7 +20,6 @@ use engine::{DBIterator, ReadOptions};
 use tidb_query::codec::table;
 use tikv::storage::types::Key;
 use tikv_util::codec::number;
-use tikv_util::codec::number::NumberEncoder;
 use tikv_util::collections::HashMap;
 
 // Just used as a mark, don't use them in comparison.
@@ -192,7 +190,7 @@ pub fn replace_ids_in_key(
         new_key.append(
             &mut index_ids
                 .get(&index_id)
-                .ok_or(Error::RestoreFileFailed("unexpected index id".to_string()))?
+                .ok_or_else(|| Error::RestoreFileFailed("unexpected index id".to_string()))?
                 .clone(),
         );
         new_key.extend_from_slice(&old_key[table::PREFIX_LEN + table::ID_LEN..]);
@@ -200,7 +198,6 @@ pub fn replace_ids_in_key(
         new_key.extend_from_slice(&old_key[table::TABLE_PREFIX_KEY_LEN..]);
     }
 
-    info!("replace id"; "old" => hex::encode_upper(&old_key), "new" => hex::encode_upper(&new_key));
     Ok(Some(new_key))
 }
 

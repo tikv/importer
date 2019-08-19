@@ -95,7 +95,6 @@ impl<Client: ImportClient> SSTFileStream<Client> {
             self.stream_range.get_end()
         };
         let range = new_range(&start, end);
-        info!("new range"; "start" => hex::encode_upper(&start), "end" => hex::encode_upper(end));
 
         let infos = w.finish()?;
         Ok(Some((range, infos)))
@@ -452,7 +451,7 @@ mod tests {
         finished_ranges: Vec<Range>,
         expected_ranges: Vec<(u8, u8, Option<u8>)>,
     ) {
-        let mut stream = KVSSTStream::new(cfg, client, engine, sst_range, finished_ranges);
+        let mut stream = SSTFileStream::new(cfg, client, engine, sst_range, finished_ranges);
         for (start, end, range_end) in expected_ranges {
             let (range, ssts) = stream.next().unwrap().unwrap();
             let start = Key::from_raw(&[start]).append_ts(0).into_encoded();

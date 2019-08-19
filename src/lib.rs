@@ -9,6 +9,4 @@ extern crate slog;
 #[macro_use]
 extern crate slog_global;
 
-extern crate hex;
-
 pub mod import;
