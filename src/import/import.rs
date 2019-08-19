@@ -36,7 +36,11 @@ pub struct ImportJob<Client> {
 }
 
 impl<Client: ImportClient> ImportJob<Client> {
-    pub fn new(cfg: Config, client: Client, engine: Engine) -> ImportJob<Client> {
+    pub fn new(
+        cfg: Config,
+        client: Client,
+        engine: Arc<Engine>,
+    ) -> ImportJob<Client> {
         let speed_limit = Arc::new(SpeedLimiter::new(
             cfg.upload_speed_limit.0 as f64,
             StandardClock,
@@ -45,7 +49,7 @@ impl<Client: ImportClient> ImportJob<Client> {
             tag: format!("[ImportJob {}]", engine.uuid()),
             cfg,
             client,
-            engine: Arc::new(engine),
+            engine,
             counter: Arc::new(AtomicUsize::new(1)),
             speed_limit,
         }
@@ -252,7 +256,7 @@ impl<Client: ImportClient> SubImportJob<Client> {
         }
     }
 
-    fn run(&self, retry_ranges: Arc<Mutex<Vec<Range>>>) -> Result<()> {
+    pub fn run(&self, retry_ranges: Arc<Mutex<Vec<Range>>>) -> Result<()> {
         let sub_id = self.id;
         let client = Arc::clone(&self.client);
         let engine = Arc::clone(&self.engine);
@@ -293,7 +297,12 @@ struct ImportSSTJob<'a, Client> {
 }
 
 impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
-    fn new(tag: String, sst: SSTFile, client: Arc<Client>, speed_limit: &'a SpeedLimiter) -> Self {
+    fn new(
+        tag: String,
+        sst: SSTFile,
+        client: Arc<Client>,
+        speed_limit: &'a SpeedLimiter,
+    ) -> Self {
         ImportSSTJob {
             tag,
             sst,

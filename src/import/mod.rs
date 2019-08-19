@@ -11,6 +11,7 @@ mod kv_server;
 mod kv_service;
 mod metrics;
 mod prepare;
+mod restore;
 mod service;
 mod speed_limiter;
 mod stream;

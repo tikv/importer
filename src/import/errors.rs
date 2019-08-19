@@ -113,7 +113,7 @@ quick_error! {
         ResourceTemporarilyUnavailable(msg: String) {
             display("{}", msg)
         }
-        ImportFileFailed(msg: String) {
+        RestoreFileFailed(msg: String) {
             display("{}", msg)
         }
     }

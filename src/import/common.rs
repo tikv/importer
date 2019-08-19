@@ -1,10 +1,8 @@
 // Copyright 2018 TiKV Project Authors. Licensed under Apache-2.0.
 
-use std::fs;
 use std::io;
 use std::mem::MaybeUninit;
 use std::ops::Deref;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use kvproto::import_kvpb::*;
@@ -16,18 +14,15 @@ use crc::crc32::{self, Hasher32};
 use pd_client::RegionInfo;
 
 use super::client::*;
-use super::engine::tune_dboptions_for_bulk_load;
 use super::{Error, Result};
-use engine::rocks::util::new_engine_opt;
-use engine::rocks::{IngestExternalFileOptions, DB};
+use engine::rocks::util::get_cf_handle;
+use engine::rocks::DB;
+use engine::{DBIterator, ReadOptions};
 use tidb_query::codec::table;
-use tikv::config::DbConfig;
 use tikv::storage::types::Key;
-use tikv::raftstore::store::keys;
 use tikv_util::codec::number;
 use tikv_util::codec::number::NumberEncoder;
 use tikv_util::collections::HashMap;
-use uuid::Uuid;
 
 // Just used as a mark, don't use them in comparison.
 pub const RANGE_MIN: &[u8] = &[];
@@ -166,68 +161,28 @@ pub fn compute_reader_crc32<R: io::Read>(reader: &mut R) -> Result<(u64, u32)> {
     Ok((length, digest.sum32()))
 }
 
-pub fn write_to_temp_db<R: io::Read>(
-    reader: &mut R,
-    temp_dir: &PathBuf,
-    uuid: Uuid,
-    db_cfg: &DbConfig,
-) -> Result<DB> {
-    let sst_file_path = {
-        let path = temp_dir.join(format!("ingest-{}-sst", uuid));
-        if path.exists() {
-            return Err(Error::FileExists(path));
-        }
-        let mut data = Vec::default();
-        reader.read_to_end(&mut data)?;
-        fs::write(&path, &data)?;
-        path
-    };
-    let db = {
-        let db_path = temp_dir.join(format!("ingest-{}", uuid));
-        let (db_opts, cf_opts) = tune_dboptions_for_bulk_load(db_cfg);
-        new_engine_opt(db_path.to_str().unwrap(), db_opts, vec![cf_opts])?
-    };
-    db.ingest_external_file(
-        &IngestExternalFileOptions::new(),
-        &[sst_file_path.to_str().unwrap()],
-    )?;
-    Ok(db)
-}
-
-pub fn replace_ids_in_key(k: &[u8], table_ids: &[IdPair], index_ids: &[IdPair]) -> Result<Option<Vec<u8>>> {
-    let mut table_id_map = HashMap::default();
-    let mut index_id_map = HashMap::default();
-    for p in table_ids {
-        let mut id = Vec::default();
-        id.encode_i64(p.get_new_id())?;
-        table_id_map.insert(p.get_old_id(), id);
-        info!("table id pair"; "old" => p.get_old_id(), "new" => p.get_new_id());
-    }
-    for p in index_ids {
-        let mut id = Vec::default();
-        id.encode_i64(p.get_new_id())?;
-        index_id_map.insert(p.get_old_id(), id);
-        info!("index id pair"; "old" => p.get_old_id(), "new" => p.get_new_id());
-    }
+pub fn replace_ids_in_key(
+    k: &[u8],
+    table_ids: &HashMap<i64, Vec<u8>>,
+    index_ids: &HashMap<i64, Vec<u8>>,
+) -> Result<Option<Vec<u8>>> {
 
     // TiDB record key format: t{table_id}_r{handle}
     // TiDB index key format: t{table_id}_i{index_id}_...
     // After receiving a key-value pair, TiKV would encode the key , then we must convert a key
     // to a raw key before we parse it.
-    let old_key = Key::from_encoded(k.to_vec());
-    let ts = old_key.decode_ts()?;
-    let old_key = old_key.into_raw()?;
+    let old_key = Key::from_encoded(k.to_vec()).into_raw()?;
     let mut new_key = table::TABLE_PREFIX.to_owned();
     if !old_key.starts_with(table::TABLE_PREFIX) {
-        return Ok(Some(k.to_vec()));
+        return Ok(None);
     }
     let table_id = {
         let mut remaining = &old_key[table::TABLE_PREFIX.len()..];
         number::decode_i64(&mut remaining)?
     };
-    match table_id_map.get(&table_id) {
+    match table_ids.get(&table_id) {
         Some(id) => new_key.extend_from_slice(id.as_slice()),
-        None => return Ok(None)
+        None => return Ok(None),
     }
     let key_type_prefix = &old_key[table::TABLE_PREFIX_KEY_LEN..table::PREFIX_LEN];
     if key_type_prefix == table::INDEX_PREFIX_SEP {
@@ -235,9 +190,9 @@ pub fn replace_ids_in_key(k: &[u8], table_ids: &[IdPair], index_ids: &[IdPair]) 
         let mut index_id_slice = &old_key[table::PREFIX_LEN..table::PREFIX_LEN + table::ID_LEN];
         let index_id = number::decode_i64(&mut index_id_slice)?;
         new_key.append(
-            &mut index_id_map
+            &mut index_ids
                 .get(&index_id)
-                .ok_or(Error::ImportFileFailed("unexpected index id".to_string()))?
+                .ok_or(Error::RestoreFileFailed("unexpected index id".to_string()))?
                 .clone(),
         );
         new_key.extend_from_slice(&old_key[table::PREFIX_LEN + table::ID_LEN..]);
@@ -246,7 +201,33 @@ pub fn replace_ids_in_key(k: &[u8], table_ids: &[IdPair], index_ids: &[IdPair]) 
     }
 
     info!("replace id"; "old" => hex::encode_upper(&old_key), "new" => hex::encode_upper(&new_key));
-    Ok(Some(Key::from_raw(&new_key).append_ts(ts).into_encoded()))
+    Ok(Some(new_key))
+}
+
+pub fn scan_db_cf<F>(db: &DB, cf: &str, start: &[u8], end: &[u8], mut f: F) -> Result<()>
+where
+    F: FnMut(&[u8], &[u8]) -> Result<bool>,
+{
+    let handle = get_cf_handle(db, cf)?;
+    let mut iter_opts = ReadOptions::default();
+    let empty_slice: &[u8] = &[];
+    if start != empty_slice {
+        iter_opts.set_iterate_lower_bound(start.to_vec());
+    }
+    if end != empty_slice {
+        iter_opts.set_iterate_upper_bound(end.to_vec());
+    }
+    iter_opts.fill_cache(false);
+
+    let mut iter = DBIterator::new_cf(db, handle, iter_opts);
+    iter.seek(start.into());
+    while iter.valid() {
+        if !f(iter.key(), iter.value())? || !iter.next() {
+            break;
+        }
+    }
+    iter.status()?;
+    Ok(())
 }
 
 #[cfg(test)]

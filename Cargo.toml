@@ -19,7 +19,7 @@ name = "integrations"
 path = "tests/integrations/import/mod.rs"
 
 [dependencies]
-backup = { git = "https://github.com/tikv/tikv.git", branch = "backup2" }
+storage = { git = "https://github.com/tikv/tikv.git", branch = "backup2" }
 clap = "2.33"
 cmd = { git = "https://github.com/tikv/tikv.git", branch = "backup2" }
 crc = "1.8"

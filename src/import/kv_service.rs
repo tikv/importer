@@ -290,13 +290,13 @@ impl ImportKv for ImportKVService {
         )
     }
 
-    fn import_file(
+    fn restore_file(
         &mut self,
         ctx: RpcContext<'_>,
-        req: ImportFileRequest,
-        sink: UnarySink<ImportFileResponse>,
+        req: RestoreFileRequest,
+        sink: UnarySink<RestoreFileResponse>,
     ) {
-        let label = "import_file";
+        let label = "restore_file";
         let timer = Instant::now_coarse();
         let import = Arc::clone(&self.importer);
 
@@ -304,9 +304,9 @@ impl ImportKv for ImportKVService {
             self.threads
                 .spawn_fn(move || {
                     let uuid = Uuid::new_v4();
-                    import.import_file(uuid, req)
+                    import.restore_file(uuid, req)
                 })
-                .map(|_| ImportFileResponse::new())
+                .map(|_| RestoreFileResponse::new())
                 .then(move |res| send_rpc_response!(res, sink, label, timer)),
         )
     }

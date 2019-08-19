@@ -8,18 +8,14 @@ use std::sync::{Arc, Mutex};
 use kvproto::import_kvpb::*;
 use uuid::Uuid;
 
-use backup;
 use tikv::config::DbConfig;
-use tikv::storage::types::Key;
-use tikv::raftstore::store::keys;
 use tikv_util::collections::HashMap;
 
 use super::client::*;
-use super::common::*;
 use super::engine::*;
 use super::import::*;
+use super::restore::*;
 use super::{Config, Error, Result};
-use engine::rocks::{self, DBIterator, ReadOptions, Writable};
 use tikv_util::security::SecurityConfig;
 
 pub struct Inner {
@@ -130,7 +126,11 @@ impl KVImporter {
                 return Err(Error::EngineInUse(uuid));
             }
             let engine = self.dir.import(uuid)?;
-            let job = Arc::new(ImportJob::new(self.cfg.clone(), client, engine));
+            let job = Arc::new(ImportJob::new(
+                self.cfg.clone(),
+                client,
+                Arc::new(engine),
+            ));
             inner.import_jobs.insert(uuid, Arc::clone(&job));
             job
         };
@@ -184,63 +184,32 @@ impl KVImporter {
         }
     }
 
-    pub fn import_file(&self, uuid: Uuid, req: ImportFileRequest) -> Result<()> {
-        self.preimport_file(uuid, req.clone())?;
-        self.close_engine(uuid)?;
-        self.import_engine(uuid, req.get_pd_addr())?;
-        self.cleanup_engine(uuid)
-    }
-
-    pub fn preimport_file(&self, uuid: Uuid, req: ImportFileRequest) -> Result<()> {
-        let file = req.get_file();
-        let storage = backup::create_storage(req.get_path())?;
-        let mut file_reader = storage.read(file.get_name())?;
-        let (_, crc32) = compute_reader_crc32(&mut file_reader)?;
-        if file.get_crc32() != crc32 {
-            return Err(Error::InvalidChunk);
-        }
+    pub fn restore_file(&self, uuid: Uuid, req: RestoreFileRequest) -> Result<()> {
+        let client = Client::new(
+            req.get_pd_addr(),
+            self.cfg.num_import_jobs,
+            self.cfg.min_available_ratio,
+        )?;
         self.open_engine(uuid)?;
-        let engine_file = self.bind_engine(uuid)?;
-        let engine = engine_file.engine.as_ref().unwrap();
 
-        let db = {
-            let mut file_reader = storage.read(file.get_name())?;
-            write_to_temp_db(&mut file_reader, &self.dir.temp_dir, uuid, &self.dir.db_cfg)?
-        };
-
-        let wb = rocks::WriteBatch::default();
-        let mut iter_opts = ReadOptions::default();
-        // start_key & end_key member of File is encoded keys without the DATA_PREFIX
-        let start_key = keys::data_key(&Key::from_raw(file.get_start_key()).into_encoded());
-        let end_key = keys::data_key(&Key::from_raw(file.get_end_key()).into_encoded());
-        iter_opts.set_iterate_lower_bound(start_key.clone());
-        iter_opts.set_iterate_upper_bound(end_key.clone());
-        info!("start import file"; "name" => file.get_name(), "start_key" => hex::encode_upper(&start_key), "end_key" => hex::encode_upper(&end_key));
-        iter_opts.fill_cache(false);
-        let mut iter = DBIterator::new(&db, iter_opts);
-        iter.seek(start_key.as_slice().into());
-        while iter.valid() {
-            let key = if req.get_mode() == ImportFileRequestMode::Txn {
-                // keys in sst file is encoded key with the DATA_PREFIX, should remove the
-                // DATA_PREFIX before replacing ids of a key
-                match replace_ids_in_key(keys::origin_key(iter.key()), req.get_table_ids(), req.get_index_ids())? {
-                    Some(key) => Some(keys::data_key(&key)),
-                    None => None
-                }
-            } else {
-                Some(iter.key().to_vec())
-            };
-            if key.is_some() {
-                wb.put(key.as_ref().unwrap(), iter.value())?;
-                info!("put key to writebatch"; "old" => hex::encode_upper(iter.key()), "new" => hex::encode_upper(&key.unwrap()));
-            }
-            if !iter.next() {
-                break;
-            }
+        {
+            let engine_file = self.bind_engine(uuid)?;
+            let rewrite_key_job =
+                RewriteKeysJob::new(uuid, req, self.dir.temp_dir.clone());
+            let wb = rewrite_key_job.run()?;
+            engine_file.write(wb)?;
         }
-        iter.status()?;
-        engine.write_without_wal(&wb)?;
-        Ok(())
+
+        self.close_engine(uuid)?;
+
+        let engine = self.dir.import(uuid)?;
+        let import_job = ImportJob::new(
+            self.cfg.clone(),
+            client,
+            Arc::new(engine),
+        );
+        import_job.run()?;
+        self.cleanup_engine(uuid)
     }
 }
 
@@ -341,7 +310,7 @@ impl fmt::Debug for EnginePath {
 /// writing is completed, it moves files to the save directory.
 pub struct EngineFile {
     uuid: Uuid,
-    path: EnginePath,
+    pub path: EnginePath,
     pub engine: Option<Engine>,
 }
 
@@ -518,10 +487,16 @@ mod tests {
         put_key2.extend_from_slice(encoded_zero_desc.as_slice());
 
         sst_writer
-            .put(&keys::data_key(&Key::from_raw(&put_key2).append_ts(0).into_encoded()), b"v1")
+            .put(
+                &keys::data_key(&Key::from_raw(&put_key2).append_ts(0).into_encoded()),
+                b"v1",
+            )
             .unwrap();
         sst_writer
-            .put(&keys::data_key(&Key::from_raw(&put_key1).append_ts(0).into_encoded()), b"v0")
+            .put(
+                &keys::data_key(&Key::from_raw(&put_key1).append_ts(0).into_encoded()),
+                b"v0",
+            )
             .unwrap();
 
         let info = sst_writer.finish().unwrap();
@@ -578,7 +553,9 @@ mod tests {
 
         assert_eq!(
             engine
-                .get(&keys::data_key(&Key::from_raw(&get_key1).append_ts(0).into_encoded()))
+                .get(&keys::data_key(
+                    &Key::from_raw(&get_key1).append_ts(0).into_encoded()
+                ))
                 .unwrap()
                 .unwrap()
                 .to_vec(),
@@ -586,7 +563,9 @@ mod tests {
         );
         assert_eq!(
             engine
-                .get(&keys::data_key(&Key::from_raw(&get_key2).append_ts(0).into_encoded()))
+                .get(&keys::data_key(
+                    &Key::from_raw(&get_key2).append_ts(0).into_encoded()
+                ))
                 .unwrap()
                 .unwrap()
                 .to_vec(),

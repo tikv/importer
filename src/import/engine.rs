@@ -51,7 +51,7 @@ impl Engine {
     ) -> Result<Engine> {
         let db = {
             let (db_opts, cf_opts) = tune_dboptions_for_bulk_load(&db_cfg);
-            new_engine_opt(path.as_ref().to_str().unwrap(), db_opts, vec![cf_opts])?
+            new_engine_opt(path.as_ref().to_str().unwrap(), db_opts, cf_opts)?
         };
         Ok(Engine {
             db: Arc::new(db),
@@ -75,6 +75,7 @@ impl Engine {
                 MutationOp::Put => {
                     let k = Key::from_raw(m.get_key()).append_ts(commit_ts);
                     wb.put(k.as_encoded(), m.get_value()).unwrap();
+                    info!("put key to writebatch"; "key" => hex::encode_upper(k.as_encoded()));
                 }
             }
         }
@@ -251,12 +252,15 @@ impl SSTWriter {
         if is_short_value(value) {
             let w = Write::new(WriteType::Put, commit_ts, Some(value.to_vec()));
             self.write.put(&k, &w.to_bytes())?;
+            info!("put key to writecf"; "key" => hex::encode_upper(&k));
             self.write_entries += 1;
         } else {
             let w = Write::new(WriteType::Put, commit_ts, None);
             self.write.put(&k, &w.to_bytes())?;
+            info!("put key to writecf"; "key" => hex::encode_upper(&k));
             self.write_entries += 1;
             self.default.put(&k, value)?;
+            info!("put key to defaultcf"; "key" => hex::encode_upper(&k));
             self.default_entries += 1;
         }
         Ok(())
@@ -318,7 +322,7 @@ pub fn get_approximate_ranges(
     ranges
 }
 
-pub fn tune_dboptions_for_bulk_load(opts: &DbConfig) -> (DBOptions, CFOptions<'_>) {
+pub fn tune_dboptions_for_bulk_load(opts: &DbConfig) -> (DBOptions, Vec<CFOptions<'_>>) {
     const DISABLED: i32 = i32::MAX;
 
     let mut db_opts = DBOptions::new();
@@ -349,10 +353,13 @@ pub fn tune_dboptions_for_bulk_load(opts: &DbConfig) -> (DBOptions, CFOptions<'_
     cf_opts.set_hard_pending_compaction_bytes_limit(0);
     cf_opts.set_level_zero_stop_writes_trigger(DISABLED);
     cf_opts.set_level_zero_slowdown_writes_trigger(DISABLED);
+
+    let write_cf_opts = CFOptions::new(CF_WRITE, cf_opts.clone());
     // Add size properties to get approximate ranges wihout scan.
     let f = Box::new(SizePropertiesCollectorFactory::default());
     cf_opts.add_table_properties_collector_factory("tikv.size-properties-collector", f);
-    (db_opts, CFOptions::new(CF_DEFAULT, cf_opts))
+    let default_cf_opts = CFOptions::new(CF_DEFAULT, cf_opts);
+    (db_opts, vec![default_cf_opts, write_cf_opts])
 }
 
 #[cfg(test)]
