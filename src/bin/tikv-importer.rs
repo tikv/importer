@@ -8,6 +8,7 @@ extern crate slog;
 #[macro_use]
 extern crate slog_global;
 
+use std::env;
 use std::path::Path;
 
 use tikv::binutil::setup::*;
@@ -92,6 +93,14 @@ fn main() {
         .get_matches();
 
     let config = setup_config(&matches);
+
+    // FIXME: initial_logger() should white-list tikv_importer!
+    if let Some(mut targets) = env::var_os("TIKV_EXTRA_LOG_TARGETS") {
+        targets.push(",tikv_importer");
+        env::set_var("TIKV_EXTRA_LOG_TARGETS", targets);
+    } else {
+        env::set_var("TIKV_EXTRA_LOG_TARGETS", "tikv_importer");
+    }
 
     // FIXME: Shouldn't need to construct tikv::config::TiKvConfig to use initial_logger.
     let mut logger_config = tikv::config::TiKvConfig::default();
