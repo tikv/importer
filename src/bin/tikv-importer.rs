@@ -149,6 +149,10 @@ fn setup_config(matches: &ArgMatches<'_>) -> TiKvConfig {
 
     overwrite_config_with_cmd_args(&mut config, matches);
 
+    // importer did not expose the advertise-addr yet.
+    // don't let it fail the validation.
+    config.server.advertise_addr = "192.0.2.0:0".to_owned();
+
     if let Err(e) = config.validate() {
         fatal!("invalid configuration: {:?}", e);
     }
