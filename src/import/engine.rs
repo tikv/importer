@@ -68,7 +68,27 @@ impl Engine {
         self.uuid
     }
 
-    pub fn write(&self, commit_ts: u64, pairs: &[KVPair]) -> Result<usize> {
+    pub fn write(&self, batch: WriteBatch) -> Result<usize> {
+        // Just a guess.
+        let wb_cap = cmp::min(batch.get_mutations().len() * 128, MB as usize);
+        let wb = RawBatch::with_capacity(wb_cap);
+        let commit_ts = batch.get_commit_ts();
+        for m in batch.get_mutations().iter() {
+            match m.get_op() {
+                Mutation_OP::Put => {
+                    let k = Key::from_raw(m.get_key()).append_ts(commit_ts);
+                    wb.put(k.as_encoded(), m.get_value()).unwrap();
+                }
+            }
+        }
+
+        let size = wb.data_size();
+        self.write_without_wal(&wb)?;
+
+        Ok(size)
+    }
+
+    pub fn write_v3(&self, commit_ts: u64, pairs: &[KVPair]) -> Result<usize> {
         // Just a guess.
         let wb_cap = cmp::min(pairs.len() * 128, MB as usize);
         let wb = RawBatch::with_capacity(wb_cap);
@@ -390,6 +410,19 @@ mod tests {
         (dir, engine)
     }
 
+    fn new_write_batch(n: u8, ts: u64) -> WriteBatch {
+        let mut wb = WriteBatch::new();
+        for i in 0..n {
+            let mut m = Mutation::new();
+            m.set_op(Mutation_OP::Put);
+            m.set_key(vec![i]);
+            m.set_value(vec![i]);
+            wb.mut_mutations().push(m);
+        }
+        wb.set_commit_ts(ts);
+        wb
+    }
+
     fn new_kv_pairs(n: u8) -> Vec<KVPair> {
         let mut pairs = vec![KVPair::new(); n as usize];
         for i in 0..n {
@@ -411,8 +444,23 @@ mod tests {
 
         let n = 10;
         let commit_ts = 10;
+        let wb = new_write_batch(n, commit_ts);
+        engine.write(wb).unwrap();
+
+        for i in 0..n {
+            let key = new_encoded_key(i, commit_ts);
+            assert_eq!(engine.get(&key).unwrap().unwrap(), &[i]);
+        }
+    }
+
+    #[test]
+    fn test_write_v3() {
+        let (_dir, engine) = new_engine();
+
+        let n = 10;
+        let commit_ts = 10;
         let pairs = new_kv_pairs(n);
-        engine.write(commit_ts, &pairs).unwrap();
+        engine.write_v3(commit_ts, &pairs).unwrap();
 
         for i in 0..n {
             let key = new_encoded_key(i, commit_ts);
