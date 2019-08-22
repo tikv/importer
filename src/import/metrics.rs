@@ -95,8 +95,8 @@ lazy_static! {
 pub fn dump() -> String {
     let mut buffer = vec![];
     let encoder = TextEncoder::new();
-    let metric_familys = prometheus::gather();
-    for mf in metric_familys {
+    let metric_families = prometheus::gather();
+    for mf in metric_families {
         if let Err(e) = encoder.encode(&[mf], &mut buffer) {
             warn!("prometheus encoding error"; "err" => ?e);
         }

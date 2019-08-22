@@ -53,6 +53,16 @@ fn test_kv_service() {
         .contains("request=\"get_version\",result=\"ok\""));
 
     let uuid = Uuid::new_v4().as_bytes().to_vec();
+    let mut head = WriteHead::new();
+    head.set_uuid(uuid.clone());
+
+    let resp = retry!(client.get_metrics(&GetMetricsRequest::new())).unwrap();
+    // It's true since we just send a get_version rpc
+    assert!(resp
+        .get_prometheus()
+        .contains("request=\"get_version\",result=\"ok\""));
+
+    let uuid = Uuid::new_v4().as_bytes().to_vec();
     let mut open = OpenEngineRequest::new();
     open.set_uuid(uuid.clone());
 
