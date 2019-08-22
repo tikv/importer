@@ -342,13 +342,12 @@ impl ImportKv for ImportKVService {
         ctx.spawn(
             self.threads
                 .spawn_fn(|| {
-                    Ok((env!("CARGO_PKG_VERSION"), env!("TIKV_BUILD_GIT_HASH")))
-                })
-                .map(|(v, c)| {
+                    let v = env!("CARGO_PKG_VERSION");
+                    let c = env!("TIKV_BUILD_GIT_HASH");
                     let mut res = GetVersionResponse::new();
                     res.set_version(v.to_owned());
                     res.set_commit(c.to_owned());
-                    res
+                    Ok(res)
                 })
                 .then(move |res| send_rpc_response!(res, sink, label, timer)),
         )
@@ -366,12 +365,9 @@ impl ImportKv for ImportKVService {
         ctx.spawn(
             self.threads
                 .spawn_fn(|| {
-                    Ok(metrics::dump())
-                })
-                .map(|v| {
                     let mut res = GetMetricsResponse::new();
-                    res.set_prometheus(v);
-                    res
+                    res.set_prometheus(metrics::dump());
+                    Ok(res)
                 })
                 .then(move |res| send_rpc_response!(res, sink, label, timer)),
         )

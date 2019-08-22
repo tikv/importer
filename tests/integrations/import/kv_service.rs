@@ -52,7 +52,7 @@ fn test_kv_service() {
         .get_prometheus()
         .contains("request=\"get_version\",result=\"ok\""));
 
-    let uuid = Uuid::new_v4().as_bytes().to_vec();   
+    let uuid = Uuid::new_v4().as_bytes().to_vec();
     let mut open = OpenEngineRequest::new();
     open.set_uuid(uuid.clone());
 

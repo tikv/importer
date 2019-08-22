@@ -55,9 +55,6 @@ sse = ['tikv/sse']
 mem-profiling = ['tikv/mem-profiling']
 profiling = ['tikv/profiling']
 
-[patch.'https://github.com/pingcap/kvproto.git']
-kvproto = { path = '/Users/lance/Projects/go/src/github.com/pingcap/kvproto' }
-
 [profile.dev]
 panic = "abort"
 
