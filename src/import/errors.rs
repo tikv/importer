@@ -12,7 +12,7 @@ use kvproto::metapb::*;
 use quick_error::quick_error;
 use uuid::{ParseError, Uuid};
 
-use tikv::pd::{Error as PdError, RegionInfo};
+use pd_client::{Error as PdError, RegionInfo};
 use tikv::raftstore::errors::Error as RaftStoreError;
 use tikv_util::codec::Error as CodecError;
 

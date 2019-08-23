@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use kvproto::metapb::*;
 
-use tikv::pd::RegionInfo;
+use pd_client::RegionInfo;
 use tikv::raftstore::coprocessor::properties::SizeProperties;
 
 use super::client::*;

@@ -303,7 +303,7 @@ impl EngineFile {
     }
 
     /// Writes KV pairs to the engine, single message version.
-    pub fn write_v3(&self, commit_ts: u64, pairs: &[KVPair]) -> Result<usize> {
+    pub fn write_v3(&self, commit_ts: u64, pairs: &[KvPair]) -> Result<usize> {
         self.engine.as_ref().unwrap().write_v3(commit_ts, pairs)
     }
 
@@ -366,7 +366,7 @@ mod tests {
         let engine = importer.bind_engine(uuid).unwrap();
 
         engine.write(WriteBatch::new()).unwrap();
-        engine.write_v3(0, &[KVPair::new()]).unwrap();
+        engine.write_v3(0, &[KvPair::new()]).unwrap();
 
         // Can not close an in use engine.
         assert!(importer.close_engine(uuid).is_err());

@@ -10,7 +10,6 @@ use uuid::Uuid;
 
 use grpcio::{ChannelBuilder, Environment, Result, WriteFlags};
 use kvproto::import_kvpb::*;
-use kvproto::import_kvpb_grpc::*;
 
 use test_util::retry;
 use tikv_importer::import::{ImportKVServer, TiKvConfig};
@@ -73,7 +72,7 @@ fn test_kv_service() {
 
     write.set_uuid(uuid.clone());
     write.set_commit_ts(123);
-    let mut p = KVPair::new();
+    let mut p = KvPair::new();
     p.set_key(vec![123]);
     p.set_value(vec![123]);
     write.take_pairs().push(p);
@@ -96,7 +95,7 @@ fn test_kv_service() {
     head.set_uuid(uuid);
 
     let mut m = Mutation::new();
-    m.op = Mutation_OP::Put;
+    m.op = MutationOp::Put;
     m.set_key(vec![1]);
     m.set_value(vec![1]);
     let mut batch = WriteBatch::new();
