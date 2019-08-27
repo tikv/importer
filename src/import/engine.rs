@@ -93,7 +93,7 @@ impl Engine {
         // Just a guess.
         let wb_cap = cmp::min(pairs.len() * 128, MB as usize);
         let wb = RawBatch::with_capacity(wb_cap);
-        for p in pairs.iter() {
+        for p in pairs {
             let k = Key::from_raw(p.get_key()).append_ts(commit_ts);
             wb.put(k.as_encoded(), p.get_value()).unwrap();
         }
