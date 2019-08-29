@@ -297,9 +297,14 @@ impl EngineFile {
         })
     }
 
-    /// Writes KV pairs to the engine.
+    /// Writes KV pairs to the engine, stream version.
     pub fn write(&self, batch: WriteBatch) -> Result<usize> {
         self.engine.as_ref().unwrap().write(batch)
+    }
+
+    /// Writes KV pairs to the engine, single message version.
+    pub fn write_v3(&self, commit_ts: u64, pairs: &[KvPair]) -> Result<usize> {
+        self.engine.as_ref().unwrap().write_v3(commit_ts, pairs)
     }
 
     /// Finish writing and move files from temp directory to save directory.
@@ -359,7 +364,10 @@ mod tests {
         assert!(importer.bind_engine(uuid).is_err());
         importer.open_engine(uuid).unwrap();
         let engine = importer.bind_engine(uuid).unwrap();
+
         engine.write(WriteBatch::new()).unwrap();
+        engine.write_v3(0, &[KvPair::new()]).unwrap();
+
         // Can not close an in use engine.
         assert!(importer.close_engine(uuid).is_err());
         drop(engine);

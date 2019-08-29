@@ -15,7 +15,7 @@ use super::engine::*;
 use super::{Config, Error, Result};
 
 pub struct SSTFile {
-    pub meta: SSTMeta,
+    pub meta: SstMeta,
     pub(crate) info: LazySSTInfo,
 }
 
