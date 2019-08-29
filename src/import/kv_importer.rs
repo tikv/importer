@@ -43,11 +43,19 @@ impl KVImporter {
     }
 
     /// Open the engine.
-    pub fn open_engine(&self, uuid: Uuid) -> Result<()> {
+    pub fn open_engine(&self, uuid: Uuid, prefix: &[u8]) -> Result<()> {
         // Checks if we have already opened an engine related to UUID
         let mut inner = self.inner.lock().unwrap();
-        if inner.engines.contains_key(&uuid) {
-            return Ok(());
+        if let Some(engine) = inner.engines.get(&uuid) {
+            if engine.key_prefix() == prefix {
+                return Ok(());
+            } else {
+                return Err(Error::EnginePrefixNotMatch(
+                    uuid,
+                    engine.key_prefix().to_vec(),
+                    prefix.to_vec(),
+                ));
+            }
         }
 
         // Restrict max open engines
@@ -59,8 +67,9 @@ impl KVImporter {
         }
 
         match self.dir.open(uuid) {
-            Ok(engine) => {
+            Ok(mut engine) => {
                 info!("open engine"; "engine" => ?engine);
+                engine.set_key_prefix(prefix);
                 inner.engines.insert(uuid, Arc::new(engine));
                 Ok(())
             }
@@ -279,6 +288,7 @@ pub struct EngineFile {
     uuid: Uuid,
     path: EnginePath,
     engine: Option<Engine>,
+    key_prefix: Vec<u8>,
 }
 
 impl EngineFile {
@@ -294,17 +304,32 @@ impl EngineFile {
             uuid,
             path,
             engine: Some(engine),
+            key_prefix: Vec::new(),
         })
+    }
+
+    pub fn set_key_prefix(&mut self, p: &[u8]) {
+        self.key_prefix = p.to_vec();
+    }
+
+    pub fn key_prefix(&self) -> &[u8] {
+        &self.key_prefix
     }
 
     /// Writes KV pairs to the engine, stream version.
     pub fn write(&self, batch: WriteBatch) -> Result<usize> {
-        self.engine.as_ref().unwrap().write(batch)
+        self.engine
+            .as_ref()
+            .unwrap()
+            .write(batch, self.key_prefix())
     }
 
     /// Writes KV pairs to the engine, single message version.
     pub fn write_v3(&self, commit_ts: u64, pairs: &[KvPair]) -> Result<usize> {
-        self.engine.as_ref().unwrap().write_v3(commit_ts, pairs)
+        self.engine
+            .as_ref()
+            .unwrap()
+            .write_v3(commit_ts, pairs, self.key_prefix())
     }
 
     /// Finish writing and move files from temp directory to save directory.
@@ -362,7 +387,7 @@ mod tests {
         let uuid = Uuid::new_v4();
         // Can not bind to an unopened engine.
         assert!(importer.bind_engine(uuid).is_err());
-        importer.open_engine(uuid).unwrap();
+        importer.open_engine(uuid, &[].to_vec()).unwrap();
         let engine = importer.bind_engine(uuid).unwrap();
 
         engine.write(WriteBatch::new()).unwrap();

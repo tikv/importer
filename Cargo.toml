@@ -65,6 +65,7 @@ mem-profiling = ['tikv/mem-profiling']
 "raft-proto:0.6.0-alpha" = { git = "https://github.com/pingcap/raft-rs", branch = "master" }
 "protobuf-codegen:2.8.0" = { git = "https://github.com/nrc/rust-protobuf", branch = "v2.8" }
 "protobuf:2.8.0" = { git = "https://github.com/nrc/rust-protobuf", branch = "v2.8" }
+"https://github.com/pingcap/kvproto.git#kvproto:0.0.2" = { path = "/Users/lance/Projects/go/src/github.com/pingcap/kvproto" }
 
 [profile.dev]
 panic = "abort"

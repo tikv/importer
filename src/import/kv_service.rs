@@ -107,7 +107,8 @@ impl ImportKv for ImportKVService {
             self.threads
                 .spawn_fn(move || {
                     let uuid = Uuid::from_bytes(req.get_uuid())?;
-                    import.open_engine(uuid)
+                    let prefix = req.get_key_prefix();
+                    import.open_engine(uuid, prefix)
                 })
                 .map(|_| OpenEngineResponse::new())
                 .then(move |res| send_rpc_response!(res, sink, label, timer)),

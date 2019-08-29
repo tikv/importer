@@ -69,7 +69,7 @@ impl Engine {
         self.uuid
     }
 
-    pub fn write(&self, batch: WriteBatch) -> Result<usize> {
+    pub fn write(&self, batch: WriteBatch, key_prefix: &[u8]) -> Result<usize> {
         // Just a guess.
         let wb_cap = cmp::min(batch.get_mutations().len() * 128, MB as usize);
         let wb = RawBatch::with_capacity(wb_cap);
@@ -77,7 +77,8 @@ impl Engine {
         for m in batch.get_mutations().iter() {
             match m.get_op() {
                 MutationOp::Put => {
-                    let k = Key::from_raw(m.get_key()).append_ts(commit_ts);
+                    let full_key = [key_prefix, m.get_key()].concat();
+                    let k = Key::from_raw(&full_key).append_ts(commit_ts);
                     wb.put(k.as_encoded(), m.get_value()).unwrap();
                 }
             }
@@ -89,12 +90,13 @@ impl Engine {
         Ok(size)
     }
 
-    pub fn write_v3(&self, commit_ts: u64, pairs: &[KvPair]) -> Result<usize> {
+    pub fn write_v3(&self, commit_ts: u64, pairs: &[KvPair], key_prefix: &[u8]) -> Result<usize> {
         // Just a guess.
         let wb_cap = cmp::min(pairs.len() * 128, MB as usize);
         let wb = RawBatch::with_capacity(wb_cap);
         for p in pairs {
-            let k = Key::from_raw(p.get_key()).append_ts(commit_ts);
+            let full_key = [key_prefix, p.get_key()].concat();
+            let k = Key::from_raw(&full_key).append_ts(commit_ts);
             wb.put(k.as_encoded(), p.get_value()).unwrap();
         }
 
@@ -439,6 +441,12 @@ mod tests {
         Key::from_raw(&[i]).append_ts(ts).into_encoded()
     }
 
+    fn new_encoded_key_with_prefix(prefix: &[u8], k: &[u8], ts: u64) -> Vec<u8> {
+        Key::from_raw(&[prefix, k].concat())
+            .append_ts(ts)
+            .into_encoded()
+    }
+
     #[test]
     fn test_write() {
         let (_dir, engine) = new_engine();
@@ -446,7 +454,7 @@ mod tests {
         let n = 10;
         let commit_ts = 10;
         let wb = new_write_batch(n, commit_ts);
-        engine.write(wb).unwrap();
+        engine.write(wb, &[]).unwrap();
 
         for i in 0..n {
             let key = new_encoded_key(i, commit_ts);
@@ -461,12 +469,31 @@ mod tests {
         let n = 10;
         let commit_ts = 10;
         let pairs = new_kv_pairs(n);
-        engine.write_v3(commit_ts, &pairs).unwrap();
+        engine.write_v3(commit_ts, &pairs, &[]).unwrap();
 
         for i in 0..n {
             let key = new_encoded_key(i, commit_ts);
             assert_eq!(engine.get(&key).unwrap().unwrap(), &[i]);
         }
+    }
+
+    #[test]
+    fn test_prefix() {
+        let (_dir, engine) = new_engine();
+        let k = 0;
+        let ts = 0;
+
+        let prefix1 = &[60, 61];
+        let wb = new_write_batch(k + 1, ts);
+        engine.write(wb, prefix1).unwrap();
+        let key1 = new_encoded_key_with_prefix(prefix1, &[k], ts);
+        assert_eq!(engine.get(&key1).unwrap().unwrap(), &[k]);
+
+        let prefix2 = &[62, 63];
+        let pairs = new_kv_pairs(k + 1);
+        engine.write_v3(ts, &pairs, prefix2).unwrap();
+        let key2 = new_encoded_key_with_prefix(prefix2, &[k], ts);
+        assert_eq!(engine.get(&key2).unwrap().unwrap(), &[k]);
     }
 
     #[test]

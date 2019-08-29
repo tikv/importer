@@ -80,6 +80,9 @@ quick_error! {
         EngineNotFound(uuid: Uuid) {
             display("Engine {} not found", uuid)
         }
+        EnginePrefixNotMatch(uuid: Uuid, old: Vec<u8>, new: Vec<u8>) {
+            display("Engine {} has different prefix, old: {:?}, new: {:?}", uuid, old, new)
+        }
         InvalidProtoMessage(reason: String) {
             display("Invalid proto message {}", reason)
         }
