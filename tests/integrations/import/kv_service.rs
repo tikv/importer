@@ -41,6 +41,8 @@ fn test_kv_service() {
     let (mut server, client, _) = new_kv_server();
     server.start();
 
+    // 1. Test GetVersion and GetMetrics
+
     let resp = retry!(client.get_version(&GetVersionRequest::new())).unwrap();
     assert_eq!(resp.get_version(), crate_version!());
     assert_eq!(resp.get_commit().len(), 40);
@@ -52,24 +54,13 @@ fn test_kv_service() {
         .contains("request=\"get_version\",result=\"ok\""));
 
     let uuid = Uuid::new_v4().as_bytes().to_vec();
-    let mut head = WriteHead::new();
-    head.set_uuid(uuid.clone());
 
-    let resp = retry!(client.get_metrics(&GetMetricsRequest::new())).unwrap();
-    // It's true since we just send a get_version rpc
-    assert!(resp
-        .get_prometheus()
-        .contains("request=\"get_version\",result=\"ok\""));
-
-    let uuid = Uuid::new_v4().as_bytes().to_vec();
-    let mut open = OpenEngineRequest::new();
-    open.set_uuid(uuid.clone());
+    // 2. Test write and close before OpenEngine
 
     let mut close = CloseEngineRequest::new();
     close.set_uuid(uuid.clone());
 
     let mut write = WriteEngineV3Request::new();
-
     write.set_uuid(uuid.clone());
     write.set_commit_ts(123);
     let mut p = KvPair::new();
@@ -84,6 +75,11 @@ fn test_kv_service() {
     // Close an engine before it it opened.
     let resp = retry!(client.close_engine(&close)).unwrap();
     assert!(resp.get_error().has_engine_not_found());
+
+    // 3. Test normal pipeline
+
+    let mut open = OpenEngineRequest::new();
+    open.set_uuid(uuid.clone());
 
     retry!(client.open_engine(&open)).unwrap();
     let resp = retry!(client.write_engine_v3(&write)).unwrap();

@@ -332,11 +332,6 @@ impl EngineFile {
             .write_v3(commit_ts, pairs, self.key_prefix())
     }
 
-    /// Writes KV pairs to the engine, single message version.
-    pub fn write_v3(&self, commit_ts: u64, pairs: &[KvPair]) -> Result<usize> {
-        self.engine.as_ref().unwrap().write_v3(commit_ts, pairs)
-    }
-
     /// Finish writing and move files from temp directory to save directory.
     fn close(&mut self) -> Result<()> {
         self.engine.take().unwrap().flush(true)?;
