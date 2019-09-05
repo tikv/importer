@@ -185,31 +185,12 @@ impl KVImporter {
     }
 
     pub fn restore_file(&self, uuid: Uuid, req: RestoreFileRequest) -> Result<()> {
-        let client = Client::new(
-            req.get_pd_addr(),
-            self.cfg.num_import_jobs,
-            self.cfg.min_available_ratio,
-        )?;
-        self.open_engine(uuid)?;
-
-        {
-            let engine_file = self.bind_engine(uuid)?;
-            let rewrite_key_job =
-                RewriteKeysJob::new(uuid, req, self.dir.temp_dir.clone());
-            let wb = rewrite_key_job.run()?;
-            engine_file.write(wb)?;
-        }
-
-        self.close_engine(uuid)?;
-
-        let engine = self.dir.import(uuid)?;
-        let import_job = ImportJob::new(
-            self.cfg.clone(),
-            client,
-            Arc::new(engine),
-        );
-        import_job.run()?;
-        self.cleanup_engine(uuid)
+        let engine_file = self.bind_engine(uuid)?;
+        let rewrite_key_job =
+            RewriteKeysJob::new(uuid, req, self.dir.temp_dir.clone());
+        let wb = rewrite_key_job.run()?;
+        engine_file.write(wb)?;
+        Ok(())
     }
 }
 

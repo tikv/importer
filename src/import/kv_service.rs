@@ -303,10 +303,20 @@ impl ImportKv for ImportKVService {
         ctx.spawn(
             self.threads
                 .spawn_fn(move || {
-                    let uuid = Uuid::new_v4();
+                    let uuid = Uuid::from_bytes(req.get_uuid())?;
                     import.restore_file(uuid, req)
                 })
-                .map(|_| RestoreFileResponse::new())
+                .then(move |res| match res {
+                    Ok(_) => Ok(RestoreFileResponse::new()),
+                    Err(Error::EngineNotFound(v)) => {
+                        let mut resp = RestoreFileResponse::new();
+                        resp.mut_error()
+                            .mut_engine_not_found()
+                            .set_uuid(v.as_bytes().to_vec());
+                        Ok(resp)
+                    }
+                    Err(e) => Err(e),
+                })
                 .then(move |res| send_rpc_response!(res, sink, label, timer)),
         )
     }
