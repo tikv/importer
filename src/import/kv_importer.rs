@@ -126,11 +126,7 @@ impl KVImporter {
                 return Err(Error::EngineInUse(uuid));
             }
             let engine = self.dir.import(uuid)?;
-            let job = Arc::new(ImportJob::new(
-                self.cfg.clone(),
-                client,
-                Arc::new(engine),
-            ));
+            let job = Arc::new(ImportJob::new(self.cfg.clone(), client, Arc::new(engine)));
             inner.import_jobs.insert(uuid, Arc::clone(&job));
             job
         };
@@ -186,8 +182,7 @@ impl KVImporter {
 
     pub fn restore_file(&self, uuid: Uuid, req: RestoreFileRequest) -> Result<()> {
         let engine_file = self.bind_engine(uuid)?;
-        let rewrite_key_job =
-            RewriteKeysJob::new(uuid, req, self.dir.temp_dir.clone());
+        let rewrite_key_job = RewriteKeysJob::new(uuid, req, self.dir.temp_dir.clone());
         let wb = rewrite_key_job.run()?;
         engine_file.write(wb)?;
         Ok(())

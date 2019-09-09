@@ -164,7 +164,6 @@ pub fn replace_ids_in_key(
     table_ids: &HashMap<i64, Vec<u8>>,
     index_ids: &HashMap<i64, Vec<u8>>,
 ) -> Result<Option<Vec<u8>>> {
-
     // TiDB record key format: t{table_id}_r{handle}
     // TiDB index key format: t{table_id}_i{index_id}_...
     // After receiving a key-value pair, TiKV would encode the key , then we must convert a key

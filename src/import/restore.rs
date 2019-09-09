@@ -4,16 +4,16 @@ use std::path::PathBuf;
 
 use engine::rocks::util::{get_cf_handle, new_engine_opt};
 use engine::rocks::{IngestExternalFileOptions, Writable, DB};
+use engine::{CF_DEFAULT, CF_WRITE};
 use kvproto::import_kvpb::*;
 use storage;
+use storage::Storage;
 use tikv::config::DbConfig;
 use tikv::raftstore::store::keys;
-use engine::{CF_DEFAULT, CF_WRITE};
-use storage::Storage;
 use tikv::storage::mvcc::Write;
-use uuid::Uuid;
-use tikv_util::collections::HashMap;
 use tikv_util::codec::number::NumberEncoder;
+use tikv_util::collections::HashMap;
+use uuid::Uuid;
 
 use super::common::*;
 use super::engine::*;
@@ -61,11 +61,7 @@ impl RewriteKeysJob {
         scan_db_cf(&db, cf, &[], &[], |k, v| {
             // keys in sst file is encoded key with the DATA_PREFIX, should remove the
             // DATA_PREFIX before replacing ids of a key
-            let key = replace_ids_in_key(
-                keys::origin_key(k),
-                &table_ids,
-                &index_ids,
-            )?;
+            let key = replace_ids_in_key(keys::origin_key(k), &table_ids, &index_ids)?;
 
             if key.is_some() {
                 let mut m = Mutation::default();
@@ -83,10 +79,16 @@ impl RewriteKeysJob {
 
     fn write_files_to_temp_db(&self) -> Result<DB> {
         let db = {
-            let db_path = self.temp_dir.join(format!("ingest-{}", self.uuid));
+            let db_path = self.temp_dir.join(format!(
+                "ingest-{}-{}",
+                self.uuid,
+                self.req.get_write().get_name()
+            ));
             let db_cfg = DbConfig::default();
             let (db_opts, cf_opts) = tune_dboptions_for_bulk_load(&db_cfg);
-            new_engine_opt(db_path.to_str().unwrap(), db_opts, cf_opts)?
+            let db = new_engine_opt(db_path.to_str().unwrap(), db_opts, cf_opts)?;
+            info!("create temp db"; "path" => ?db_path);
+            db
         };
 
         let default_cf_handle = get_cf_handle(&db, CF_DEFAULT)?;
@@ -96,6 +98,7 @@ impl RewriteKeysJob {
                 self.req.get_default().get_name(),
                 self.req.get_default().get_crc32(),
             )?;
+            info!("get default file"; "name" => self.req.get_default().get_name());
             db.ingest_external_file_cf(
                 default_cf_handle,
                 &IngestExternalFileOptions::new(),
@@ -109,6 +112,7 @@ impl RewriteKeysJob {
             self.req.get_write().get_crc32(),
         )?;
         let write_cf_handle = get_cf_handle(&db, CF_WRITE)?;
+        info!("get write file"; "name" => self.req.get_write().get_name());
         db.ingest_external_file_cf(
             write_cf_handle,
             &IngestExternalFileOptions::new(),
@@ -131,6 +135,7 @@ impl RewriteKeysJob {
     fn get_sst_file(&self, url: &str, name: &str, crc32: u32) -> Result<PathBuf> {
         let storage = storage::create_storage(url)?;
         let mut file_reader = storage.read(name)?;
+        info!("read file from external storage"; "name" => name);
         let (_, file_crc32) = compute_reader_crc32(&mut file_reader)?;
         if crc32 != file_crc32 {
             return Err(Error::InvalidChunk);
