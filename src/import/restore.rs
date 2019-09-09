@@ -99,9 +99,11 @@ impl RewriteKeysJob {
                 self.req.get_default().get_crc32(),
             )?;
             info!("get default file"; "name" => self.req.get_default().get_name());
+            let mut opts = IngestExternalFileOptions::new();
+            opts.move_files(true);
             db.ingest_external_file_cf(
                 default_cf_handle,
-                &IngestExternalFileOptions::new(),
+                &opts,
                 &[default_sst.to_str().unwrap()],
             )?;
         }
@@ -113,9 +115,11 @@ impl RewriteKeysJob {
         )?;
         let write_cf_handle = get_cf_handle(&db, CF_WRITE)?;
         info!("get write file"; "name" => self.req.get_write().get_name());
+        let mut opts = IngestExternalFileOptions::new();
+        opts.move_files(true);
         db.ingest_external_file_cf(
             write_cf_handle,
-            &IngestExternalFileOptions::new(),
+            &opts,
             &[write_sst.to_str().unwrap()],
         )?;
 
