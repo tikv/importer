@@ -36,8 +36,11 @@ impl RewriteKeysJob {
 
     pub fn run(&self) -> Result<WriteBatch> {
         let db = self.write_files_to_temp_db()?;
-
         let default_wb = self.rewrite_keys(&db, CF_DEFAULT)?;
+        let db_path = self.get_temp_db_path();
+        if db_path.exists() {
+            fs::remove_dir_all(&db_path)?;
+        }
         Ok(default_wb)
     }
 
@@ -79,11 +82,7 @@ impl RewriteKeysJob {
 
     fn write_files_to_temp_db(&self) -> Result<DB> {
         let db = {
-            let db_path = self.temp_dir.join(format!(
-                "ingest-{}-{}",
-                self.uuid,
-                self.req.get_write().get_name()
-            ));
+            let db_path = self.get_temp_db_path();
             let db_cfg = DbConfig::default();
             let (db_opts, cf_opts) = tune_dboptions_for_bulk_load(&db_cfg);
             let db = new_engine_opt(db_path.to_str().unwrap(), db_opts, cf_opts)?;
@@ -134,6 +133,14 @@ impl RewriteKeysJob {
         })?;
 
         Ok(db)
+    }
+
+    fn get_temp_db_path(&self) -> PathBuf {
+        self.temp_dir.join(format!(
+            "ingest-{}-{}",
+            self.uuid,
+            self.req.get_write().get_name()
+        ))
     }
 
     fn get_sst_file(&self, url: &str, name: &str, crc32: u32) -> Result<PathBuf> {
