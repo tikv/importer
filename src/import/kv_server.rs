@@ -43,7 +43,7 @@ impl ImportKVServer {
             .stream_initial_window_size(cfg.grpc_stream_initial_window_size.0 as i32)
             .max_concurrent_stream(cfg.grpc_concurrent_stream)
             .max_send_message_len(MAX_GRPC_MSG_LEN)
-            .max_receive_message_len(MAX_GRPC_MSG_LEN)
+            .max_receive_message_len(-1)
             .build_args();
 
         let grpc_server = ServerBuilder::new(Arc::clone(&env))
