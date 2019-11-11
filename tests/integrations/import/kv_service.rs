@@ -75,7 +75,7 @@ fn test_kv_service() {
     assert!(!resp.has_error());
 
     let mut m = Mutation::new();
-    m.op = MutationOp::Put;
+    m.op = Mutation_OP::Put;
     m.set_key(vec![2]);
     m.set_value(vec![0; 90_000_000]);
     let mut huge_batch = WriteBatch::new();
