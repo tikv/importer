@@ -18,10 +18,11 @@ use kvproto::import_sstpb::*;
 use engine::rocks::util::{new_engine_opt, CFOptions};
 use engine::rocks::{
     BlockBasedOptions, Cache, ColumnFamilyOptions, DBIterator, DBOptions, Env, EnvOptions,
-    ExternalSstFileInfo, LRUCacheOptions, ReadOptions, SequentialFile, SstFileWriter, Writable,
+    ExternalSstFileInfo, LRUCacheOptions, ReadOptions, SequentialFile, Writable,
     WriteBatch as RawBatch, DB,
 };
 use engine::{CF_DEFAULT, CF_WRITE};
+use engine_rocksdb::SstFileWriter;
 use tikv::config::DbConfig;
 use tikv::raftstore::coprocessor::properties::{SizeProperties, SizePropertiesCollectorFactory};
 use tikv::raftstore::store::keys;
@@ -75,11 +76,26 @@ impl Engine {
         let commit_ts = batch.get_commit_ts();
         for m in batch.get_mutations().iter() {
             match m.get_op() {
-                Mutation_OP::Put => {
+                MutationOp::Put => {
                     let k = Key::from_raw(m.get_key()).append_ts(commit_ts);
                     wb.put(k.as_encoded(), m.get_value()).unwrap();
                 }
             }
+        }
+
+        let size = wb.data_size();
+        self.write_without_wal(&wb)?;
+
+        Ok(size)
+    }
+
+    pub fn write_v3(&self, commit_ts: u64, pairs: &[KvPair]) -> Result<usize> {
+        // Just a guess.
+        let wb_cap = cmp::min(pairs.len() * 128, MB as usize);
+        let wb = RawBatch::with_capacity(wb_cap);
+        for p in pairs {
+            let k = Key::from_raw(p.get_key()).append_ts(commit_ts);
+            wb.put(k.as_encoded(), p.get_value()).unwrap();
         }
 
         let size = wb.data_size();
@@ -186,7 +202,7 @@ impl LazySSTInfo {
             length += size as u64;
         }
 
-        let mut meta = SSTMeta::new();
+        let mut meta = SstMeta::new();
         meta.set_uuid(Uuid::new_v4().as_bytes().to_vec());
         meta.set_range(self.range.clone());
         meta.set_crc32(digest.sum32());
@@ -399,13 +415,24 @@ mod tests {
         let mut wb = WriteBatch::new();
         for i in 0..n {
             let mut m = Mutation::new();
-            m.set_op(Mutation_OP::Put);
+            m.set_op(MutationOp::Put);
             m.set_key(vec![i]);
             m.set_value(vec![i]);
             wb.mut_mutations().push(m);
         }
         wb.set_commit_ts(ts);
         wb
+    }
+
+    fn new_kv_pairs(n: u8) -> Vec<KvPair> {
+        let mut pairs = vec![KvPair::new(); n as usize];
+        for i in 0..n {
+            let mut p = KvPair::new();
+            p.set_key(vec![i]);
+            p.set_value(vec![i]);
+            pairs[i as usize] = p;
+        }
+        pairs
     }
 
     fn new_encoded_key(i: u8, ts: u64) -> Vec<u8> {
@@ -420,6 +447,21 @@ mod tests {
         let commit_ts = 10;
         let wb = new_write_batch(n, commit_ts);
         engine.write(wb).unwrap();
+
+        for i in 0..n {
+            let key = new_encoded_key(i, commit_ts);
+            assert_eq!(engine.get(&key).unwrap().unwrap(), &[i]);
+        }
+    }
+
+    #[test]
+    fn test_write_v3() {
+        let (_dir, engine) = new_engine();
+
+        let n = 10;
+        let commit_ts = 10;
+        let pairs = new_kv_pairs(n);
+        engine.write_v3(commit_ts, &pairs).unwrap();
 
         for i in 0..n {
             let key = new_encoded_key(i, commit_ts);
@@ -505,7 +547,7 @@ mod tests {
         region.mut_peers().push(Peer::new());
         let snap = RegionSnapshot::from_raw(Arc::clone(&db), region);
 
-        let mut reader = MvccReader::new(snap, None, false, None, None, IsolationLevel::SI);
+        let mut reader = MvccReader::new(snap, None, false, None, None, IsolationLevel::Si);
         // Make sure that all kvs are right.
         for i in 0..n {
             let k = Key::from_raw(&[i]);

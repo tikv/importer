@@ -7,7 +7,7 @@ use kvproto::import_sstpb::*;
 use kvproto::kvrpcpb::*;
 use kvproto::metapb::*;
 
-use tikv::pd::RegionInfo;
+use pd_client::RegionInfo;
 
 use super::client::*;
 

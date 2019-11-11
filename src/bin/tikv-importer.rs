@@ -11,12 +11,12 @@ extern crate slog_global;
 use std::env;
 use std::path::Path;
 
-use tikv::binutil::setup::*;
-use tikv::binutil::signal_handler;
+use cmd::setup::*;
+use cmd::signal_handler;
 
 use clap::{crate_authors, crate_version, App, Arg, ArgMatches};
 
-use tikv::fatal;
+use cmd::fatal;
 use tikv_importer::import::{ImportKVServer, TiKvConfig};
 use tikv_util::{self as tikv_util, check_environment_variables, logger};
 

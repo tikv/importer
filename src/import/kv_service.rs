@@ -7,7 +7,6 @@ use futures::{Future, Stream};
 use futures_cpupool::{Builder, CpuPool};
 use grpcio::{ClientStreamingSink, RequestStream, RpcContext, UnarySink};
 use kvproto::import_kvpb::*;
-use kvproto::import_kvpb_grpc::*;
 use uuid::Uuid;
 
 use tikv::raftstore::store::keys;
@@ -169,6 +168,46 @@ impl ImportKv for ImportKVService {
                     })
                     .then(move |res| send_rpc_response!(res, sink, label, timer)),
             ),
+        )
+    }
+
+    fn write_engine_v3(
+        &mut self,
+        ctx: RpcContext<'_>,
+        req: WriteEngineV3Request,
+        sink: UnarySink<WriteEngineResponse>,
+    ) {
+        let label = "write_engine";
+        let timer = Instant::now_coarse();
+        let import = Arc::clone(&self.importer);
+
+        ctx.spawn(
+            self.threads
+                .spawn_fn(move || {
+                    let uuid = Uuid::from_bytes(req.get_uuid())?;
+                    let engine = import.bind_engine(uuid)?;
+                    Ok((engine, req))
+                })
+                .and_then(move |(engine, req)| {
+                    let ts = req.get_commit_ts();
+                    let start = Instant::now_coarse();
+                    let write_size = engine.write_v3(ts, req.get_pairs())?;
+                    IMPORT_WRITE_CHUNK_BYTES.observe(write_size as f64);
+                    IMPORT_WRITE_CHUNK_DURATION.observe(start.elapsed_secs());
+                    Ok(())
+                })
+                .then(move |res| match res {
+                    Ok(_) => Ok(WriteEngineResponse::new()),
+                    Err(Error::EngineNotFound(v)) => {
+                        let mut resp = WriteEngineResponse::new();
+                        resp.mut_error()
+                            .mut_engine_not_found()
+                            .set_uuid(v.as_bytes().to_vec());
+                        Ok(resp)
+                    }
+                    Err(e) => Err(e),
+                })
+                .then(move |res| send_rpc_response!(res, sink, label, timer)),
         )
     }
 
