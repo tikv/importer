@@ -3,8 +3,7 @@
 use std::cmp;
 use std::fmt;
 use std::i32;
-use std::io::Read;
-use std::mem::uninitialized;
+use std::io;
 use std::ops::Deref;
 use std::path::{Path, PathBuf, MAIN_SEPARATOR};
 use std::sync::Arc;
@@ -24,7 +23,9 @@ use engine::rocks::{
 use engine::{CF_DEFAULT, CF_WRITE};
 use engine_rocksdb::SstFileWriter;
 use tikv::config::DbConfig;
-use tikv::raftstore::coprocessor::properties::{SizeProperties, SizePropertiesCollectorFactory};
+use tikv::raftstore::coprocessor::properties::{
+    IndexHandle, RangeProperties, RangePropertiesCollectorFactory, SizeProperties,
+};
 use tikv::raftstore::store::keys;
 use tikv::storage::is_short_value;
 use tikv::storage::mvcc::{Write, WriteType};
@@ -119,9 +120,17 @@ impl Engine {
         let mut res = SizeProperties::default();
         let collection = self.get_properties_of_all_tables()?;
         for (_, v) in &*collection {
-            let props = SizeProperties::decode(v.user_collected_properties())?;
-            res.total_size += props.total_size;
-            res.index_handles.extend(props.index_handles.clone());
+            let props = RangeProperties::decode(v.user_collected_properties())?;
+            res.total_size += props.offsets.iter().map(|pair| pair.1.size).sum::<u64>();
+            res.index_handles.extend(props.offsets.iter().map(|pair| {
+                (
+                    pair.0.clone(),
+                    IndexHandle {
+                        size: pair.1.size,
+                        offset: 0,
+                    },
+                )
+            }));
         }
         Ok(res)
     }
@@ -187,26 +196,20 @@ impl LazySSTInfo {
 
     pub(crate) fn into_sst_file(self) -> Result<SSTFile> {
         let mut seq_file = self.open()?;
-        let mut buf: [u8; 65536] = unsafe { uninitialized() };
 
         // TODO: If we can compute the CRC simultaneously with upload, we don't
         // need to open() and read() the file twice.
-        let mut digest = crc32::Digest::new(crc32::IEEE);
-        let mut length = 0u64;
-        loop {
-            let size = seq_file.read(&mut buf)?;
-            if size == 0 {
-                break;
-            }
-            digest.write(&buf[..size]);
-            length += size as u64;
-        }
+        let mut writer = Crc32Writer {
+            digest: crc32::Digest::new(crc32::IEEE),
+            length: 0,
+        };
+        io::copy(&mut seq_file, &mut writer)?;
 
         let mut meta = SstMeta::new();
         meta.set_uuid(Uuid::new_v4().as_bytes().to_vec());
         meta.set_range(self.range.clone());
-        meta.set_crc32(digest.sum32());
-        meta.set_length(length);
+        meta.set_crc32(writer.digest.sum32());
+        meta.set_length(writer.length);
         meta.set_cf_name(self.cf_name.to_owned());
 
         Ok(SSTFile { meta, info: self })
@@ -223,6 +226,23 @@ impl Drop for LazySSTInfo {
                 warn!("cleanup SST failed"; "file_path" => ?self.file_path, "err" => %err);
             }
         }
+    }
+}
+
+struct Crc32Writer {
+    digest: crc32::Digest,
+    length: u64,
+}
+
+impl io::Write for Crc32Writer {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.digest.write(buf);
+        self.length += buf.len() as u64;
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
     }
 }
 
@@ -379,7 +399,7 @@ fn tune_dboptions_for_bulk_load(opts: &DbConfig) -> (DBOptions, CFOptions<'_>) {
     cf_opts.set_level_zero_stop_writes_trigger(DISABLED);
     cf_opts.set_level_zero_slowdown_writes_trigger(DISABLED);
     // Add size properties to get approximate ranges wihout scan.
-    let f = Box::new(SizePropertiesCollectorFactory::default());
+    let f = Box::new(RangePropertiesCollectorFactory::default());
     cf_opts.add_table_properties_collector_factory("tikv.size-properties-collector", f);
     (db_opts, CFOptions::new(CF_DEFAULT, cf_opts))
 }
@@ -547,7 +567,7 @@ mod tests {
         region.mut_peers().push(Peer::new());
         let snap = RegionSnapshot::from_raw(Arc::clone(&db), region);
 
-        let mut reader = MvccReader::new(snap, None, false, None, None, IsolationLevel::Si);
+        let mut reader = MvccReader::new(snap, None, false, IsolationLevel::Si);
         // Make sure that all kvs are right.
         for i in 0..n {
             let k = Key::from_raw(&[i]);

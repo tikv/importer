@@ -106,7 +106,7 @@ impl ImportKv for ImportKVService {
         ctx.spawn(
             self.threads
                 .spawn_fn(move || {
-                    let uuid = Uuid::from_bytes(req.get_uuid())?;
+                    let uuid = Uuid::from_slice(req.get_uuid())?;
                     import.open_engine(uuid)
                 })
                 .map(|_| OpenEngineResponse::new())
@@ -138,7 +138,7 @@ impl ImportKv for ImportKVService {
                             Some(ref chunk) if chunk.has_head() => chunk.get_head(),
                             _ => return Err(Error::InvalidChunk),
                         };
-                        let uuid = Uuid::from_bytes(head.get_uuid())?;
+                        let uuid = Uuid::from_slice(head.get_uuid())?;
                         let engine = import.bind_engine(uuid)?;
                         Ok((engine, stream))
                     })
@@ -184,7 +184,7 @@ impl ImportKv for ImportKVService {
         ctx.spawn(
             self.threads
                 .spawn_fn(move || {
-                    let uuid = Uuid::from_bytes(req.get_uuid())?;
+                    let uuid = Uuid::from_slice(req.get_uuid())?;
                     let engine = import.bind_engine(uuid)?;
                     Ok((engine, req))
                 })
@@ -224,7 +224,7 @@ impl ImportKv for ImportKVService {
         ctx.spawn(
             self.threads
                 .spawn_fn(move || {
-                    let uuid = Uuid::from_bytes(req.get_uuid())?;
+                    let uuid = Uuid::from_slice(req.get_uuid())?;
                     import.close_engine(uuid)
                 })
                 .then(move |res| match res {
@@ -255,7 +255,7 @@ impl ImportKv for ImportKVService {
         ctx.spawn(
             self.threads
                 .spawn_fn(move || {
-                    let uuid = Uuid::from_bytes(req.get_uuid())?;
+                    let uuid = Uuid::from_slice(req.get_uuid())?;
                     import.import_engine(uuid, req.get_pd_addr())
                 })
                 .map(|_| ImportEngineResponse::new())
@@ -276,7 +276,7 @@ impl ImportKv for ImportKVService {
         ctx.spawn(
             self.threads
                 .spawn_fn(move || {
-                    let uuid = Uuid::from_bytes(req.get_uuid())?;
+                    let uuid = Uuid::from_slice(req.get_uuid())?;
                     import.cleanup_engine(uuid)
                 })
                 .map(|_| CleanupEngineResponse::new())

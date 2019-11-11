@@ -29,7 +29,7 @@ impl SSTFile {
 
 impl fmt::Debug for SSTFile {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let uuid = Uuid::from_bytes(self.meta.get_uuid()).unwrap();
+        let uuid = Uuid::from_slice(self.meta.get_uuid()).unwrap();
         f.debug_struct("SSTFile")
             .field("uuid", &uuid)
             .field("range", self.meta.get_range())
