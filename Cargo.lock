@@ -2285,7 +2285,7 @@ dependencies = [
 
 [[package]]
 name = "tikv-importer"
-version = "3.0.6"
+version = "3.0.7"
 dependencies = [
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "crc 1.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
