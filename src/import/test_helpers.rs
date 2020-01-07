@@ -1,67 +1,17 @@
 // Copyright 2018 TiKV Project Authors. Licensed under Apache-2.0.
 
-use std::fs;
-use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use crc::crc32::{self, Hasher32};
-use kvproto::import_sstpb::*;
 use kvproto::kvrpcpb::*;
 use kvproto::metapb::*;
-use uuid::Uuid;
 
-use engine::rocks::{ColumnFamilyOptions, EnvOptions, DB};
-use engine_rocksdb::SstFileWriter;
 use pd_client::RegionInfo;
 use tikv_util::collections::HashMap;
 
 use super::client::*;
 use super::common::*;
 use super::Result;
-
-pub fn calc_data_crc32(data: &[u8]) -> u32 {
-    let mut digest = crc32::Digest::new(crc32::IEEE);
-    digest.write(data);
-    digest.sum32()
-}
-
-pub fn check_db_range(db: &DB, range: (u8, u8)) {
-    for i in range.0..range.1 {
-        let k = keys::data_key(&[i]);
-        assert_eq!(db.get(&k).unwrap().unwrap(), &[i]);
-    }
-}
-
-pub fn gen_sst_file<P: AsRef<Path>>(path: P, range: (u8, u8)) -> (SstMeta, Vec<u8>) {
-    let env_opt = EnvOptions::new();
-    let cf_opt = ColumnFamilyOptions::new();
-    let mut w = SstFileWriter::new(env_opt, cf_opt);
-
-    w.open(path.as_ref().to_str().unwrap()).unwrap();
-    for i in range.0..range.1 {
-        let k = keys::data_key(&[i]);
-        w.put(&k, &[i]).unwrap();
-    }
-    w.finish().unwrap();
-
-    read_sst_file(path, range)
-}
-
-pub fn read_sst_file<P: AsRef<Path>>(path: P, range: (u8, u8)) -> (SstMeta, Vec<u8>) {
-    let data = fs::read(path).unwrap();
-    let crc32 = calc_data_crc32(&data);
-
-    let mut meta = SstMeta::new();
-    meta.set_uuid(Uuid::new_v4().as_bytes().to_vec());
-    meta.mut_range().set_start(vec![range.0]);
-    meta.mut_range().set_end(vec![range.1]);
-    meta.set_crc32(crc32);
-    meta.set_length(data.len() as u64);
-    meta.set_cf_name("default".to_owned());
-
-    (meta, data)
-}
 
 #[derive(Clone)]
 pub struct MockClient {
@@ -84,11 +34,11 @@ impl MockClient {
     }
 
     pub fn add_region_range(&mut self, start: &[u8], end: &[u8]) {
-        let mut r = Region::new();
+        let mut r = Region::default();
         r.set_id(self.alloc_id());
         r.set_start_key(start.to_owned());
         r.set_end_key(end.to_owned());
-        let mut peer = Peer::new();
+        let mut peer = Peer::default();
         peer.set_id(self.alloc_id());
         peer.set_store_id(self.alloc_id());
         r.mut_peers().push(peer);
@@ -138,7 +88,7 @@ impl ImportClient for MockClient {
         right.set_start_key(split_key.to_vec());
         regions.insert(right.get_id(), right.clone());
 
-        let mut resp = SplitRegionResponse::new();
+        let mut resp = SplitRegionResponse::default();
         resp.set_left(left);
         resp.set_right(right);
         Ok(resp)

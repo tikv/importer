@@ -12,6 +12,7 @@ use crc::crc32::{self, Hasher32};
 use uuid::Uuid;
 
 use kvproto::import_kvpb::*;
+use kvproto::import_kvpb::mutation::Op as MutationOp;
 use kvproto::import_sstpb::*;
 
 use engine::rocks::util::{new_engine_opt, CFOptions};
@@ -174,7 +175,7 @@ impl fmt::Debug for LazySSTInfo {
 impl LazySSTInfo {
     fn new(env: Arc<Env>, info: ExternalSstFileInfo, cf_name: &'static str) -> Self {
         // This range doesn't contain the data prefix, like the region range.
-        let mut range = Range::new();
+        let mut range = Range::default();
         range.set_start(keys::origin_key(info.smallest_key()).to_owned());
         range.set_end(keys::origin_key(info.largest_key()).to_owned());
 
@@ -204,7 +205,7 @@ impl LazySSTInfo {
         };
         io::copy(&mut seq_file, &mut writer)?;
 
-        let mut meta = SstMeta::new();
+        let mut meta = SstMeta::default();
         meta.set_uuid(Uuid::new_v4().as_bytes().to_vec());
         meta.set_range(self.range.clone());
         meta.set_crc32(writer.digest.sum32());
@@ -432,9 +433,9 @@ mod tests {
     }
 
     fn new_write_batch(n: u8, ts: u64) -> WriteBatch {
-        let mut wb = WriteBatch::new();
+        let mut wb = WriteBatch::default();
         for i in 0..n {
-            let mut m = Mutation::new();
+            let mut m = Mutation::default();
             m.set_op(MutationOp::Put);
             m.set_key(vec![i]);
             m.set_value(vec![i]);
@@ -445,9 +446,9 @@ mod tests {
     }
 
     fn new_kv_pairs(n: u8) -> Vec<KvPair> {
-        let mut pairs = vec![KvPair::new(); n as usize];
+        let mut pairs = vec![KvPair::default(); n as usize];
         for i in 0..n {
-            let mut p = KvPair::new();
+            let mut p = KvPair::default();
             p.set_key(vec![i]);
             p.set_value(vec![i]);
             pairs[i as usize] = p;
@@ -563,9 +564,9 @@ mod tests {
         }
 
         // Make a fake region snapshot.
-        let mut region = Region::new();
+        let mut region = Region::default();
         region.set_id(1);
-        region.mut_peers().push(Peer::new());
+        region.mut_peers().push(Peer::default());
         let snap = RegionSnapshot::<RocksEngine>::from_raw(Arc::clone(&db), region);
 
         let mut reader = MvccReader::new(snap, None, false, IsolationLevel::Si);

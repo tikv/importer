@@ -16,7 +16,7 @@ pub const RANGE_MIN: &[u8] = &[];
 pub const RANGE_MAX: &[u8] = &[];
 
 pub fn new_range(start: &[u8], end: &[u8]) -> Range {
-    let mut range = Range::new();
+    let mut range = Range::default();
     range.set_start(start.to_owned());
     range.set_end(end.to_owned());
     range
@@ -117,7 +117,7 @@ pub fn new_context(region: &RegionInfo) -> Context {
         region.get_peers().first().unwrap().clone()
     };
 
-    let mut ctx = Context::new();
+    let mut ctx = Context::default();
     ctx.set_region_id(region.get_id());
     ctx.set_region_epoch(region.get_region_epoch().clone());
     ctx.set_peer(peer.clone());
@@ -146,7 +146,7 @@ mod tests {
     }
 
     fn new_region_range(start: &[u8], end: &[u8]) -> Region {
-        let mut r = Region::new();
+        let mut r = Region::default();
         r.set_start_key(start.to_vec());
         r.set_end_key(end.to_vec());
         r

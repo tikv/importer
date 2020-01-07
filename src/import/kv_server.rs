@@ -5,7 +5,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use grpcio::{ChannelBuilder, EnvBuilder, Server as GrpcServer, ServerBuilder};
-use kvproto::import_kvpb_grpc::create_import_kv;
+use kvproto::import_kvpb::create_import_kv;
 
 use tikv_util::thd_name;
 

@@ -440,7 +440,7 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
         let ctx = new_context(region);
         let store_id = ctx.get_peer().get_store_id();
 
-        let mut ingest = IngestRequest::new();
+        let mut ingest = IngestRequest::default();
         ingest.set_context(ctx);
         ingest.set_sst(self.sst.meta.clone());
 

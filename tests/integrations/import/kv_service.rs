@@ -10,6 +10,7 @@ use uuid::Uuid;
 
 use grpcio::{ChannelBuilder, Environment, Result, WriteFlags};
 use kvproto::import_kvpb::*;
+use kvproto::import_kvpb::mutation::Op as MutationOp;
 
 use test_util::retry;
 use tikv_importer::import::{ImportKVServer, TiKvConfig};
@@ -41,38 +42,38 @@ fn test_kv_service() {
     let (mut server, client, _) = new_kv_server();
     server.start();
 
-    let resp = retry!(client.get_version(&GetVersionRequest::new())).unwrap();
+    let resp = retry!(client.get_version(&GetVersionRequest::default())).unwrap();
     assert_eq!(resp.get_version(), crate_version!());
     assert_eq!(resp.get_commit().len(), 40);
 
-    let resp = retry!(client.get_metrics(&GetMetricsRequest::new())).unwrap();
+    let resp = retry!(client.get_metrics(&GetMetricsRequest::default())).unwrap();
     // It's true since we just send a get_version rpc
     assert!(resp
         .get_prometheus()
         .contains("request=\"get_version\",result=\"ok\""));
 
     let uuid = Uuid::new_v4().as_bytes().to_vec();
-    let mut head = WriteHead::new();
+    let mut head = WriteHead::default();
     head.set_uuid(uuid.clone());
 
-    let resp = retry!(client.get_metrics(&GetMetricsRequest::new())).unwrap();
+    let resp = retry!(client.get_metrics(&GetMetricsRequest::default())).unwrap();
     // It's true since we just send a get_version rpc
     assert!(resp
         .get_prometheus()
         .contains("request=\"get_version\",result=\"ok\""));
 
     let uuid = Uuid::new_v4().as_bytes().to_vec();
-    let mut open = OpenEngineRequest::new();
+    let mut open = OpenEngineRequest::default();
     open.set_uuid(uuid.clone());
 
-    let mut close = CloseEngineRequest::new();
+    let mut close = CloseEngineRequest::default();
     close.set_uuid(uuid.clone());
 
-    let mut write = WriteEngineV3Request::new();
+    let mut write = WriteEngineV3Request::default();
 
     write.set_uuid(uuid.clone());
     write.set_commit_ts(123);
-    let mut p = KvPair::new();
+    let mut p = KvPair::default();
     p.set_key(vec![123]);
     p.set_value(vec![123]);
     write.take_pairs().push(p);
@@ -91,14 +92,14 @@ fn test_kv_service() {
     let resp = retry!(client.write_engine_v3(&write)).unwrap();
     assert!(!resp.has_error());
 
-    let mut head = WriteHead::new();
+    let mut head = WriteHead::default();
     head.set_uuid(uuid);
 
-    let mut m = Mutation::new();
-    m.op = MutationOp::Put;
+    let mut m = Mutation::default();
+    m.set_op(MutationOp::Put);
     m.set_key(vec![1]);
     m.set_value(vec![1]);
-    let mut batch = WriteBatch::new();
+    let mut batch = WriteBatch::default();
     batch.set_commit_ts(123);
     batch.mut_mutations().push(m);
 
@@ -107,11 +108,11 @@ fn test_kv_service() {
     let resp = retry!(send_write(&client, &head, &batch)).unwrap();
     assert!(!resp.has_error());
 
-    let mut m = Mutation::new();
-    m.op = MutationOp::Put;
+    let mut m = Mutation::default();
+    m.set_op(MutationOp::Put);
     m.set_key(vec![2]);
     m.set_value(vec![0; 90_000_000]);
-    let mut huge_batch = WriteBatch::new();
+    let mut huge_batch = WriteBatch::default();
     huge_batch.set_commit_ts(124);
     huge_batch.mut_mutations().push(m);
     let resp = retry!(send_write(&client, &head, &huge_batch)).unwrap();
@@ -128,11 +129,11 @@ fn send_write(
     head: &WriteHead,
     batch: &WriteBatch,
 ) -> Result<WriteEngineResponse> {
-    let mut r1 = WriteEngineRequest::new();
+    let mut r1 = WriteEngineRequest::default();
     r1.set_head(head.clone());
-    let mut r2 = WriteEngineRequest::new();
+    let mut r2 = WriteEngineRequest::default();
     r2.set_batch(batch.clone());
-    let mut r3 = WriteEngineRequest::new();
+    let mut r3 = WriteEngineRequest::default();
     r3.set_batch(batch.clone());
     let reqs: Vec<_> = vec![r1, r2, r3]
         .into_iter()
