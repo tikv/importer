@@ -26,10 +26,8 @@ use tikv::config::DbConfig;
 use tikv::raftstore::coprocessor::properties::{
     IndexHandle, RangeProperties, RangePropertiesCollectorFactory, SizeProperties,
 };
-use tikv::raftstore::store::keys;
-use tikv::storage::is_short_value;
 use tikv::storage::mvcc::{Write, WriteType};
-use tikv::storage::types::Key;
+use txn_types::{is_short_value, Key, TimeStamp};
 use tikv_util::config::MB;
 
 use super::common::*;
@@ -74,7 +72,7 @@ impl Engine {
         // Just a guess.
         let wb_cap = cmp::min(batch.get_mutations().len() * 128, MB as usize);
         let wb = RawBatch::with_capacity(wb_cap);
-        let commit_ts = batch.get_commit_ts();
+        let commit_ts = TimeStamp::new(batch.get_commit_ts());
         for m in batch.get_mutations().iter() {
             match m.get_op() {
                 MutationOp::Put => {
@@ -94,6 +92,7 @@ impl Engine {
         // Just a guess.
         let wb_cap = cmp::min(pairs.len() * 128, MB as usize);
         let wb = RawBatch::with_capacity(wb_cap);
+        let commit_ts = TimeStamp::new(commit_ts);
         for p in pairs {
             let k = Key::from_raw(p.get_key()).append_ts(commit_ts);
             wb.put(k.as_encoded(), p.get_value()).unwrap();
@@ -299,11 +298,11 @@ impl SSTWriter {
         let (_, commit_ts) = Key::split_on_ts_for(key)?;
         if is_short_value(value) {
             let w = Write::new(WriteType::Put, commit_ts, Some(value.to_vec()));
-            self.write.put(&k, &w.to_bytes())?;
+            self.write.put(&k, &w.as_ref().to_bytes())?;
             self.write_entries += 1;
         } else {
             let w = Write::new(WriteType::Put, commit_ts, None);
-            self.write.put(&k, &w.to_bytes())?;
+            self.write.put(&k, &w.as_ref().to_bytes())?;
             self.write_entries += 1;
             self.default.put(&k, value)?;
             self.default_entries += 1;
@@ -456,6 +455,7 @@ mod tests {
     }
 
     fn new_encoded_key(i: u8, ts: u64) -> Vec<u8> {
+        let ts = TimeStamp::new(ts);
         Key::from_raw(&[i]).append_ts(ts).into_encoded()
     }
 

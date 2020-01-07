@@ -327,7 +327,7 @@ mod tests {
     use uuid::Uuid;
 
     use tikv::config::DbConfig;
-    use tikv::storage::types::Key;
+    use txn_types::Key;
     use tikv_util::security::SecurityConfig;
 
     fn new_encoded_key(k: &[u8]) -> Vec<u8> {

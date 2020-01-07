@@ -3,8 +3,6 @@
 #![feature(slice_patterns)]
 #![feature(proc_macro_hygiene)]
 
-#[macro_use(slog_crit, slog_info)]
-extern crate slog;
 #[macro_use]
 extern crate slog_global;
 
@@ -163,7 +161,7 @@ fn run_import_server(config: &TiKvConfig) {
     let mut server = ImportKVServer::new(config);
     server.start();
     info!("import server started");
-    signal_handler::handle_signal(None);
+    signal_handler::wait_for_signal(None);
     server.shutdown();
     info!("import server shutdown");
 }

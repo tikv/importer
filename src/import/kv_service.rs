@@ -9,8 +9,7 @@ use grpcio::{ClientStreamingSink, RequestStream, RpcContext, UnarySink};
 use kvproto::import_kvpb::*;
 use uuid::Uuid;
 
-use tikv::raftstore::store::keys;
-use tikv::storage::types::Key;
+use txn_types::Key;
 use tikv_util::time::Instant;
 
 use super::client::*;
