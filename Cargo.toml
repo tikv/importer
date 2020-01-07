@@ -53,6 +53,7 @@ package = "rocksdb"
 tempdir = "0.3"
 rand = "0.7"
 test_util = { git = "https://github.com/tikv/tikv.git", branch = "master", default-features = false }
+engine_rocks = { git = "https://github.com/tikv/tikv.git", branch = "master", default-features = false }
 
 [features]
 default = ['tikv/default']

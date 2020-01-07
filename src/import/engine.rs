@@ -416,9 +416,10 @@ mod tests {
     use tempdir::TempDir;
 
     use engine::rocks::util::security::encrypted_env_from_cipher_file;
+    use engine_rocks::RocksEngine;
     use tikv::raftstore::store::RegionSnapshot;
     use tikv::storage::mvcc::MvccReader;
-    use tikv::storage::BlockCacheConfig;
+    use tikv::storage::config::BlockCacheConfig;
     use tikv_util::file::file_exists;
 
     fn new_engine() -> (TempDir, Engine) {
@@ -565,13 +566,13 @@ mod tests {
         let mut region = Region::new();
         region.set_id(1);
         region.mut_peers().push(Peer::new());
-        let snap = RegionSnapshot::from_raw(Arc::clone(&db), region);
+        let snap = RegionSnapshot::<RocksEngine>::from_raw(Arc::clone(&db), region);
 
         let mut reader = MvccReader::new(snap, None, false, IsolationLevel::Si);
         // Make sure that all kvs are right.
         for i in 0..n {
             let k = Key::from_raw(&[i]);
-            let v = reader.get(&k, commit_ts).unwrap().unwrap();
+            let v = reader.get(&k, TimeStamp::new(commit_ts)).unwrap().unwrap();
             assert_eq!(&v, &value);
         }
         // Make sure that no extra keys are added.

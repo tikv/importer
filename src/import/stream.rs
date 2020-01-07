@@ -204,8 +204,8 @@ mod tests {
     use tempdir::TempDir;
 
     use tikv::config::DbConfig;
-    use txn_types::Key;
     use tikv_util::security::SecurityConfig;
+    use txn_types::{Key, TimeStamp};
 
     fn open_db<P: AsRef<Path>>(path: P) -> Arc<DB> {
         let path = path.as_ref().to_str().unwrap();

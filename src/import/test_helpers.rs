@@ -14,7 +14,6 @@ use uuid::Uuid;
 use engine::rocks::{ColumnFamilyOptions, EnvOptions, DB};
 use engine_rocksdb::SstFileWriter;
 use pd_client::RegionInfo;
-use tikv::raftstore::store::keys;
 use tikv_util::collections::HashMap;
 
 use super::client::*;
