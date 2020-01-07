@@ -10,7 +10,7 @@ use grpcio::Error as GrpcError;
 use kvproto::errorpb;
 use kvproto::metapb::*;
 use quick_error::quick_error;
-use uuid::{ParseError, Uuid};
+use uuid::{self, Uuid};
 
 use pd_client::{Error as PdError, RegionInfo};
 use tikv::raftstore::errors::Error as RaftStoreError;
@@ -29,7 +29,7 @@ quick_error! {
             cause(err)
             description(err.description())
         }
-        Uuid(err: ParseError) {
+        Uuid(err: uuid::BytesError) {
             from()
             cause(err)
             description(err.description())
