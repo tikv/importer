@@ -121,16 +121,18 @@ impl Engine {
         let collection = self.get_properties_of_all_tables()?;
         for (_, v) in &*collection {
             let props = RangeProperties::decode(v.user_collected_properties())?;
-            res.total_size += props.offsets.iter().map(|pair| pair.1.size).sum::<u64>();
-            res.index_handles.extend(props.offsets.iter().map(|pair| {
-                (
-                    pair.0.clone(),
+            let mut prev_size = 0;
+            for (key, range) in props.offsets {
+                res.index_handles.add(
+                    key,
                     IndexHandle {
-                        size: pair.1.size,
-                        offset: 0,
+                        size: range.size - prev_size,
+                        offset: range.size,
                     },
-                )
-            }));
+                );
+                prev_size = range.size;
+            }
+            res.total_size += prev_size;
         }
         Ok(res)
     }
@@ -417,6 +419,10 @@ mod tests {
     use tempdir::TempDir;
 
     use engine::rocks::util::security::encrypted_env_from_cipher_file;
+    use rand::{
+        rngs::{OsRng, StdRng},
+        RngCore, SeedableRng,
+    };
     use tikv::raftstore::store::RegionSnapshot;
     use tikv::storage::mvcc::MvccReader;
     use tikv::storage::BlockCacheConfig;
@@ -602,6 +608,7 @@ mod tests {
         }
 
         let props = engine.get_size_properties().unwrap();
+        assert_eq!(props.total_size, (SIZE_INDEX_DISTANCE as u64) * 9);
 
         let ranges = get_approximate_ranges(&props, 1, 0);
         assert_eq!(ranges.len(), 1);
@@ -625,5 +632,44 @@ mod tests {
         assert_eq!(ranges[1].end, vec![7]);
         assert_eq!(ranges[2].start, vec![7]);
         assert_eq!(ranges[2].end, RANGE_MAX.to_owned());
+    }
+
+    #[test]
+    fn test_size_of_huge_engine() {
+        let mut seed = <StdRng as SeedableRng>::Seed::default();
+        OsRng.fill_bytes(&mut seed);
+        eprintln!("test_size_of_huge_engine seed = {:x?}", &seed);
+
+        let mut rng = StdRng::from_seed(seed);
+
+        let (_dir, engine) = new_engine();
+
+        for i in 0..100 {
+            let mut wb = WriteBatch::default();
+            for j in 0..1000 {
+                let key = format!("t{:08}_r{:08}", i, j).into_bytes();
+                let mut value = vec![0u8; 78];
+                rng.fill_bytes(&mut value);
+
+                let mut m = Mutation::default();
+                m.set_op(MutationOp::Put);
+                m.set_key(key);
+                m.set_value(value);
+                wb.mut_mutations().push(m);
+            }
+            wb.set_commit_ts(i + 1);
+            engine.write(wb).unwrap();
+        }
+        engine.flush(true).unwrap();
+
+        let props = engine.get_size_properties().unwrap();
+        assert_eq!(props.total_size, 100 * 1000 * (78 + 19 + 16));
+
+        let mut cur_size = 0;
+        for (_, v) in props.index_handles.iter() {
+            assert_eq!(cur_size + v.size, v.offset);
+            cur_size = v.offset;
+        }
+        assert_eq!(cur_size, props.total_size);
     }
 }
