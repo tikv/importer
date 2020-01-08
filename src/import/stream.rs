@@ -12,7 +12,7 @@ use kvproto::metapb::*;
 use super::client::*;
 use super::common::*;
 use super::engine::*;
-use super::{Config, Error, Result};
+use super::{Config, Result};
 
 pub struct SSTFile {
     pub meta: SSTMeta,
@@ -148,7 +148,7 @@ impl RangeIterator {
     }
 
     pub fn next(&mut self) -> Result<bool> {
-        if !self.iter.next() {
+        if !self.iter.next()? {
             return Ok(false);
         }
         {
@@ -163,7 +163,7 @@ impl RangeIterator {
 
     fn seek_next(&mut self) -> Result<bool> {
         while let Some(range) = self.ranges.get(self.ranges_index) {
-            if !self.iter.seek(SeekKey::Key(range.get_start())) {
+            if !self.iter.seek(SeekKey::Key(range.get_start()))? {
                 break;
             }
             assert!(self.iter.key() >= range.get_start());
@@ -184,10 +184,7 @@ impl RangeIterator {
     }
 
     pub fn valid(&self) -> Result<bool> {
-        if !self.iter.valid() {
-            if let Err(e) = self.iter.status() {
-                return Err(Error::RocksDB(e));
-            }
+        if !self.iter.valid()? {
             Ok(false)
         } else {
             Ok(self.ranges_index < self.ranges.len())
