@@ -12,10 +12,10 @@ use engine::rocks::SequentialFile;
 use kvproto::import_sstpb::*;
 use kvproto::kvrpcpb::*;
 use kvproto::pdpb::OperatorStatus;
-use kvproto::tikvpb_grpc::*;
+use kvproto::tikvpb::TikvClient;
 
 use pd_client::{Config as PdConfig, Error as PdError, PdClient, RegionInfo, RpcClient};
-use tikv::storage::types::Key;
+use txn_types::Key;
 use tikv_util::collections::{HashMap, HashMapEntry};
 use tikv_util::security::SecurityManager;
 
@@ -184,7 +184,7 @@ impl ImportClient for Client {
         let ctx = new_context(region);
         let store_id = ctx.get_peer().get_store_id();
 
-        let mut req = SplitRegionRequest::new();
+        let mut req = SplitRegionRequest::default();
         req.set_context(ctx);
         req.set_split_key(Key::from_encoded_slice(split_key).into_raw()?);
 
@@ -222,7 +222,7 @@ impl ImportClient for Client {
             Ok(resp) => {
                 // If the current operator of region is not `scatter-region`, we could assume
                 // that `scatter-operator` has finished or timeout.
-                Ok(resp.desc != b"scatter-region" || resp.status != OperatorStatus::Running)
+                Ok(resp.desc != b"scatter-region" || resp.get_status() != OperatorStatus::Running)
             }
             Err(PdError::RegionNotFound(_)) => Ok(true), // heartbeat may not send to PD
             Err(err) => {
@@ -264,7 +264,7 @@ impl<R: Read> Stream for UploadStream<R> {
         let flags = WriteFlags::default().buffer_hint(true);
 
         if let Some(meta) = self.meta.take() {
-            let mut chunk = UploadRequest::new();
+            let mut chunk = UploadRequest::default();
             chunk.set_meta(meta);
             return Ok(Async::Ready(Some((chunk, flags))));
         }
@@ -278,7 +278,7 @@ impl<R: Read> Stream for UploadStream<R> {
             return Ok(Async::Ready(None));
         }
 
-        let mut chunk = UploadRequest::new();
+        let mut chunk = UploadRequest::default();
         chunk.set_data(buf);
         Ok(Async::Ready(Some((chunk, flags))))
     }
@@ -291,7 +291,7 @@ mod tests {
 
     #[test]
     fn test_upload_stream() {
-        let mut meta = SstMeta::new();
+        let mut meta = SstMeta::default();
         meta.set_crc32(123);
         meta.set_length(321);
 

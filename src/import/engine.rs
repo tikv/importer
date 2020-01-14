@@ -12,6 +12,7 @@ use crc::crc32::{self, Hasher32};
 use uuid::Uuid;
 
 use kvproto::import_kvpb::*;
+use kvproto::import_kvpb::mutation::Op as MutationOp;
 use kvproto::import_sstpb::*;
 
 use engine::rocks::util::{new_engine_opt, CFOptions};
@@ -26,10 +27,8 @@ use tikv::config::DbConfig;
 use tikv::raftstore::coprocessor::properties::{
     IndexHandle, RangeProperties, RangePropertiesCollectorFactory, SizeProperties,
 };
-use tikv::raftstore::store::keys;
-use tikv::storage::is_short_value;
 use tikv::storage::mvcc::{Write, WriteType};
-use tikv::storage::types::Key;
+use txn_types::{is_short_value, Key, TimeStamp};
 use tikv_util::config::MB;
 
 use super::common::*;
@@ -74,7 +73,7 @@ impl Engine {
         // Just a guess.
         let wb_cap = cmp::min(batch.get_mutations().len() * 128, MB as usize);
         let wb = RawBatch::with_capacity(wb_cap);
-        let commit_ts = batch.get_commit_ts();
+        let commit_ts = TimeStamp::new(batch.get_commit_ts());
         for m in batch.get_mutations().iter() {
             match m.get_op() {
                 MutationOp::Put => {
@@ -94,6 +93,7 @@ impl Engine {
         // Just a guess.
         let wb_cap = cmp::min(pairs.len() * 128, MB as usize);
         let wb = RawBatch::with_capacity(wb_cap);
+        let commit_ts = TimeStamp::new(commit_ts);
         for p in pairs {
             let k = Key::from_raw(p.get_key()).append_ts(commit_ts);
             wb.put(k.as_encoded(), p.get_value()).unwrap();
@@ -177,7 +177,7 @@ impl fmt::Debug for LazySSTInfo {
 impl LazySSTInfo {
     fn new(env: Arc<Env>, info: ExternalSstFileInfo, cf_name: &'static str) -> Self {
         // This range doesn't contain the data prefix, like the region range.
-        let mut range = Range::new();
+        let mut range = Range::default();
         range.set_start(keys::origin_key(info.smallest_key()).to_owned());
         range.set_end(keys::origin_key(info.largest_key()).to_owned());
 
@@ -207,7 +207,7 @@ impl LazySSTInfo {
         };
         io::copy(&mut seq_file, &mut writer)?;
 
-        let mut meta = SstMeta::new();
+        let mut meta = SstMeta::default();
         meta.set_uuid(Uuid::new_v4().as_bytes().to_vec());
         meta.set_range(self.range.clone());
         meta.set_crc32(writer.digest.sum32());
@@ -301,11 +301,11 @@ impl SSTWriter {
         let (_, commit_ts) = Key::split_on_ts_for(key)?;
         if is_short_value(value) {
             let w = Write::new(WriteType::Put, commit_ts, Some(value.to_vec()));
-            self.write.put(&k, &w.to_bytes())?;
+            self.write.put(&k, &w.as_ref().to_bytes())?;
             self.write_entries += 1;
         } else {
             let w = Write::new(WriteType::Put, commit_ts, None);
-            self.write.put(&k, &w.to_bytes())?;
+            self.write.put(&k, &w.as_ref().to_bytes())?;
             self.write_entries += 1;
             self.default.put(&k, value)?;
             self.default_entries += 1;
@@ -419,13 +419,14 @@ mod tests {
     use tempdir::TempDir;
 
     use engine::rocks::util::security::encrypted_env_from_cipher_file;
+    use engine_rocks::RocksEngine;
     use rand::{
         rngs::{OsRng, StdRng},
         RngCore, SeedableRng,
     };
     use tikv::raftstore::store::RegionSnapshot;
     use tikv::storage::mvcc::MvccReader;
-    use tikv::storage::BlockCacheConfig;
+    use tikv::storage::config::BlockCacheConfig;
     use tikv_util::file::file_exists;
 
     fn new_engine() -> (TempDir, Engine) {
@@ -438,9 +439,9 @@ mod tests {
     }
 
     fn new_write_batch(n: u8, ts: u64) -> WriteBatch {
-        let mut wb = WriteBatch::new();
+        let mut wb = WriteBatch::default();
         for i in 0..n {
-            let mut m = Mutation::new();
+            let mut m = Mutation::default();
             m.set_op(MutationOp::Put);
             m.set_key(vec![i]);
             m.set_value(vec![i]);
@@ -451,9 +452,9 @@ mod tests {
     }
 
     fn new_kv_pairs(n: u8) -> Vec<KvPair> {
-        let mut pairs = vec![KvPair::new(); n as usize];
+        let mut pairs = vec![KvPair::default(); n as usize];
         for i in 0..n {
-            let mut p = KvPair::new();
+            let mut p = KvPair::default();
             p.set_key(vec![i]);
             p.set_value(vec![i]);
             pairs[i as usize] = p;
@@ -462,6 +463,7 @@ mod tests {
     }
 
     fn new_encoded_key(i: u8, ts: u64) -> Vec<u8> {
+        let ts = TimeStamp::new(ts);
         Key::from_raw(&[i]).append_ts(ts).into_encoded()
     }
 
@@ -568,16 +570,16 @@ mod tests {
         }
 
         // Make a fake region snapshot.
-        let mut region = Region::new();
+        let mut region = Region::default();
         region.set_id(1);
-        region.mut_peers().push(Peer::new());
-        let snap = RegionSnapshot::from_raw(Arc::clone(&db), region);
+        region.mut_peers().push(Peer::default());
+        let snap = RegionSnapshot::<RocksEngine>::from_raw(Arc::clone(&db), region);
 
         let mut reader = MvccReader::new(snap, None, false, IsolationLevel::Si);
         // Make sure that all kvs are right.
         for i in 0..n {
             let k = Key::from_raw(&[i]);
-            let v = reader.get(&k, commit_ts).unwrap().unwrap();
+            let v = reader.get(&k, TimeStamp::new(commit_ts)).unwrap().unwrap();
             assert_eq!(&v, &value);
         }
         // Make sure that no extra keys are added.

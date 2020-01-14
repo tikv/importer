@@ -365,8 +365,8 @@ mod tests {
         importer.open_engine(uuid).unwrap();
         let engine = importer.bind_engine(uuid).unwrap();
 
-        engine.write(WriteBatch::new()).unwrap();
-        engine.write_v3(0, &[KvPair::new()]).unwrap();
+        engine.write(WriteBatch::default()).unwrap();
+        engine.write_v3(0, &[KvPair::default()]).unwrap();
 
         // Can not close an in use engine.
         assert!(importer.close_engine(uuid).is_err());

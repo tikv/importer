@@ -12,7 +12,7 @@ use kvproto::metapb::*;
 use super::client::*;
 use super::common::*;
 use super::engine::*;
-use super::{Config, Error, Result};
+use super::{Config, Result};
 
 pub struct SSTFile {
     pub meta: SstMeta,
@@ -148,7 +148,7 @@ impl RangeIterator {
     }
 
     pub fn next(&mut self) -> Result<bool> {
-        if !self.iter.next() {
+        if !self.iter.next()? {
             return Ok(false);
         }
         {
@@ -163,7 +163,7 @@ impl RangeIterator {
 
     fn seek_next(&mut self) -> Result<bool> {
         while let Some(range) = self.ranges.get(self.ranges_index) {
-            if !self.iter.seek(SeekKey::Key(range.get_start())) {
+            if !self.iter.seek(SeekKey::Key(range.get_start()))? {
                 break;
             }
             assert!(self.iter.key() >= range.get_start());
@@ -184,10 +184,7 @@ impl RangeIterator {
     }
 
     pub fn valid(&self) -> Result<bool> {
-        if !self.iter.valid() {
-            if let Err(e) = self.iter.status() {
-                return Err(Error::RocksDB(e));
-            }
+        if !self.iter.valid()? {
             Ok(false)
         } else {
             Ok(self.ranges_index < self.ranges.len())
@@ -207,8 +204,8 @@ mod tests {
     use tempdir::TempDir;
 
     use tikv::config::DbConfig;
-    use tikv::storage::types::Key;
     use tikv_util::security::SecurityConfig;
+    use txn_types::{Key, TimeStamp};
 
     fn open_db<P: AsRef<Path>>(path: P) -> Arc<DB> {
         let path = path.as_ref().to_str().unwrap();
@@ -219,7 +216,7 @@ mod tests {
     }
 
     fn new_int_range(start: Option<i32>, end: Option<i32>) -> Range {
-        let mut range = Range::new();
+        let mut range = Range::default();
         if let Some(start) = start {
             let k = format!("k-{:04}", start);
             range.set_start(k.as_bytes().to_owned());
@@ -363,8 +360,8 @@ mod tests {
     }
 
     fn new_encoded_range(start: u8, end: u8) -> Range {
-        let k1 = Key::from_raw(&[start]).append_ts(0);
-        let k2 = Key::from_raw(&[end]).append_ts(0);
+        let k1 = Key::from_raw(&[start]).append_ts(TimeStamp::zero());
+        let k2 = Key::from_raw(&[end]).append_ts(TimeStamp::zero());
         new_range(k1.as_encoded(), k2.as_encoded())
     }
 
@@ -377,7 +374,7 @@ mod tests {
         let engine = Arc::new(Engine::new(dir.path(), uuid, db_cfg, security_cfg).unwrap());
 
         for i in 0..16 {
-            let k = Key::from_raw(&[i]).append_ts(0);
+            let k = Key::from_raw(&[i]).append_ts(TimeStamp::zero());
             assert_eq!(k.as_encoded().len(), 17);
             engine.put(k.as_encoded(), k.as_encoded()).unwrap();
         }
@@ -394,7 +391,7 @@ mod tests {
         ];
         let mut last = vec![];
         for i in keys {
-            let k = Key::from_raw(&[i]).append_ts(0);
+            let k = Key::from_raw(&[i]).append_ts(TimeStamp::zero());
             client.add_region_range(&last, k.as_encoded());
             last = k.into_encoded();
         }
@@ -454,10 +451,10 @@ mod tests {
         let mut stream = SSTFileStream::new(cfg, client, engine, sst_range, finished_ranges);
         for (start, end, range_end) in expected_ranges {
             let (range, ssts) = stream.next().unwrap().unwrap();
-            let start = Key::from_raw(&[start]).append_ts(0).into_encoded();
-            let end = Key::from_raw(&[end]).append_ts(0).into_encoded();
+            let start = Key::from_raw(&[start]).append_ts(TimeStamp::zero()).into_encoded();
+            let end = Key::from_raw(&[end]).append_ts(TimeStamp::zero()).into_encoded();
             let range_end = match range_end {
-                Some(v) => Key::from_raw(&[v]).append_ts(0).into_encoded(),
+                Some(v) => Key::from_raw(&[v]).append_ts(TimeStamp::zero()).into_encoded(),
                 None => RANGE_MAX.to_owned(),
             };
             assert_eq!(range.get_start(), start.as_slice());

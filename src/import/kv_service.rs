@@ -9,8 +9,7 @@ use grpcio::{ClientStreamingSink, RequestStream, RpcContext, UnarySink};
 use kvproto::import_kvpb::*;
 use uuid::Uuid;
 
-use tikv::raftstore::store::keys;
-use tikv::storage::types::Key;
+use txn_types::Key;
 use tikv_util::time::Instant;
 
 use super::client::*;
@@ -88,7 +87,7 @@ impl ImportKv for ImportKVService {
                         }
                     }
                 })
-                .map(|_| SwitchModeResponse::new())
+                .map(|_| SwitchModeResponse::default())
                 .then(move |res| send_rpc_response!(res, sink, label, timer)),
         )
     }
@@ -109,7 +108,7 @@ impl ImportKv for ImportKVService {
                     let uuid = Uuid::from_slice(req.get_uuid())?;
                     import.open_engine(uuid)
                 })
-                .map(|_| OpenEngineResponse::new())
+                .map(|_| OpenEngineResponse::default())
                 .then(move |res| send_rpc_response!(res, sink, label, timer)),
         )
     }
@@ -156,9 +155,9 @@ impl ImportKv for ImportKVService {
                         })
                     })
                     .then(move |res| match res {
-                        Ok(_) => Ok(WriteEngineResponse::new()),
+                        Ok(_) => Ok(WriteEngineResponse::default()),
                         Err(Error::EngineNotFound(v)) => {
-                            let mut resp = WriteEngineResponse::new();
+                            let mut resp = WriteEngineResponse::default();
                             resp.mut_error()
                                 .mut_engine_not_found()
                                 .set_uuid(v.as_bytes().to_vec());
@@ -197,9 +196,9 @@ impl ImportKv for ImportKVService {
                     Ok(())
                 })
                 .then(move |res| match res {
-                    Ok(_) => Ok(WriteEngineResponse::new()),
+                    Ok(_) => Ok(WriteEngineResponse::default()),
                     Err(Error::EngineNotFound(v)) => {
-                        let mut resp = WriteEngineResponse::new();
+                        let mut resp = WriteEngineResponse::default();
                         resp.mut_error()
                             .mut_engine_not_found()
                             .set_uuid(v.as_bytes().to_vec());
@@ -228,9 +227,9 @@ impl ImportKv for ImportKVService {
                     import.close_engine(uuid)
                 })
                 .then(move |res| match res {
-                    Ok(_) => Ok(CloseEngineResponse::new()),
+                    Ok(_) => Ok(CloseEngineResponse::default()),
                     Err(Error::EngineNotFound(v)) => {
-                        let mut resp = CloseEngineResponse::new();
+                        let mut resp = CloseEngineResponse::default();
                         resp.mut_error()
                             .mut_engine_not_found()
                             .set_uuid(v.as_bytes().to_vec());
@@ -258,7 +257,7 @@ impl ImportKv for ImportKVService {
                     let uuid = Uuid::from_slice(req.get_uuid())?;
                     import.import_engine(uuid, req.get_pd_addr())
                 })
-                .map(|_| ImportEngineResponse::new())
+                .map(|_| ImportEngineResponse::default())
                 .then(move |res| send_rpc_response!(res, sink, label, timer)),
         )
     }
@@ -279,7 +278,7 @@ impl ImportKv for ImportKVService {
                     let uuid = Uuid::from_slice(req.get_uuid())?;
                     import.cleanup_engine(uuid)
                 })
-                .map(|_| CleanupEngineResponse::new())
+                .map(|_| CleanupEngineResponse::default())
                 .then(move |res| send_rpc_response!(res, sink, label, timer)),
         )
     }
@@ -324,7 +323,7 @@ impl ImportKv for ImportKVService {
                         }
                     }
                 })
-                .map(|_| CompactClusterResponse::new())
+                .map(|_| CompactClusterResponse::default())
                 .then(move |res| send_rpc_response!(res, sink, label, timer)),
         )
     }
@@ -343,7 +342,7 @@ impl ImportKv for ImportKVService {
                 .spawn_fn(|| {
                     let v = env!("CARGO_PKG_VERSION");
                     let c = env!("TIKV_BUILD_GIT_HASH");
-                    let mut res = GetVersionResponse::new();
+                    let mut res = GetVersionResponse::default();
                     res.set_version(v.to_owned());
                     res.set_commit(c.to_owned());
                     Ok(res)
@@ -364,7 +363,7 @@ impl ImportKv for ImportKVService {
         ctx.spawn(
             self.threads
                 .spawn_fn(|| {
-                    let mut res = GetMetricsResponse::new();
+                    let mut res = GetMetricsResponse::default();
                     res.set_prometheus(metrics::dump());
                     Ok(res)
                 })
