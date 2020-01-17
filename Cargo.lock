@@ -3645,7 +3645,7 @@ dependencies = [
 
 [[package]]
 name = "tikv-importer"
-version = "4.0.0-alpha"
+version = "4.0.0-beta"
 dependencies = [
  "clap",
  "cmd",
