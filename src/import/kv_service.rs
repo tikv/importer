@@ -9,8 +9,8 @@ use grpcio::{ClientStreamingSink, RequestStream, RpcContext, UnarySink};
 use kvproto::import_kvpb::*;
 use uuid::Uuid;
 
-use txn_types::Key;
 use tikv_util::time::Instant;
+use txn_types::Key;
 
 use super::client::*;
 use super::metrics::{self, *};

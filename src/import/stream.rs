@@ -451,10 +451,16 @@ mod tests {
         let mut stream = SSTFileStream::new(cfg, client, engine, sst_range, finished_ranges);
         for (start, end, range_end) in expected_ranges {
             let (range, ssts) = stream.next().unwrap().unwrap();
-            let start = Key::from_raw(&[start]).append_ts(TimeStamp::zero()).into_encoded();
-            let end = Key::from_raw(&[end]).append_ts(TimeStamp::zero()).into_encoded();
+            let start = Key::from_raw(&[start])
+                .append_ts(TimeStamp::zero())
+                .into_encoded();
+            let end = Key::from_raw(&[end])
+                .append_ts(TimeStamp::zero())
+                .into_encoded();
             let range_end = match range_end {
-                Some(v) => Key::from_raw(&[v]).append_ts(TimeStamp::zero()).into_encoded(),
+                Some(v) => Key::from_raw(&[v])
+                    .append_ts(TimeStamp::zero())
+                    .into_encoded(),
                 None => RANGE_MAX.to_owned(),
             };
             assert_eq!(range.get_start(), start.as_slice());

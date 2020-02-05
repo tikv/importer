@@ -15,9 +15,9 @@ use kvproto::pdpb::OperatorStatus;
 use kvproto::tikvpb::TikvClient;
 
 use pd_client::{Config as PdConfig, Error as PdError, PdClient, RegionInfo, RpcClient};
-use txn_types::Key;
 use tikv_util::collections::{HashMap, HashMapEntry};
 use tikv_util::security::SecurityManager;
+use txn_types::Key;
 
 use super::common::*;
 use super::{Error, Result};

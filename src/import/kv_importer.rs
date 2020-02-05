@@ -60,7 +60,7 @@ impl KVImporter {
 
         match self.dir.open(uuid) {
             Ok(engine) => {
-                info!("open engine"; "engine" => ?engine);
+                info!("open engine completed"; "engine" => ?engine);
                 inner.engines.insert(uuid, Arc::new(engine));
                 Ok(())
             }
@@ -100,7 +100,7 @@ impl KVImporter {
 
         match engine.close() {
             Ok(_) => {
-                info!("close engine"; "engine" => ?engine);
+                info!("close engine completed"; "engine" => ?engine);
                 Ok(())
             }
             Err(e) => {
@@ -135,7 +135,7 @@ impl KVImporter {
 
         match res {
             Ok(_) => {
-                info!("import"; "uuid" => %uuid);
+                info!("import completed"; "uuid" => %uuid);
                 Ok(())
             }
             Err(e) => {
@@ -169,7 +169,7 @@ impl KVImporter {
 
         match self.dir.cleanup(uuid) {
             Ok(_) => {
-                info!("cleanup"; "uuid" => %uuid);
+                info!("cleanup completed"; "uuid" => %uuid);
                 Ok(())
             }
             Err(e) => {

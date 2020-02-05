@@ -11,8 +11,8 @@ use std::sync::Arc;
 use crc::crc32::{self, Hasher32};
 use uuid::Uuid;
 
-use kvproto::import_kvpb::*;
 use kvproto::import_kvpb::mutation::Op as MutationOp;
+use kvproto::import_kvpb::*;
 use kvproto::import_sstpb::*;
 
 use engine::rocks::util::{new_engine_opt, CFOptions};
@@ -28,8 +28,8 @@ use tikv::raftstore::coprocessor::properties::{
     IndexHandle, RangeProperties, RangePropertiesCollectorFactory, SizeProperties,
 };
 use tikv::storage::mvcc::{Write, WriteType};
-use txn_types::{is_short_value, Key, TimeStamp};
 use tikv_util::config::MB;
+use txn_types::{is_short_value, Key, TimeStamp};
 
 use super::common::*;
 use super::Result;
@@ -222,7 +222,7 @@ impl Drop for LazySSTInfo {
     fn drop(&mut self) {
         match self.env.delete_file(self.file_path.to_str().unwrap()) {
             Ok(()) => {
-                info!("cleanup SST"; "file_path" => ?self.file_path);
+                info!("cleanup SST completed"; "file_path" => ?self.file_path);
             }
             Err(err) => {
                 warn!("cleanup SST failed"; "file_path" => ?self.file_path, "err" => %err);
@@ -425,8 +425,8 @@ mod tests {
         RngCore, SeedableRng,
     };
     use tikv::raftstore::store::RegionSnapshot;
-    use tikv::storage::mvcc::MvccReader;
     use tikv::storage::config::BlockCacheConfig;
+    use tikv::storage::mvcc::MvccReader;
     use tikv_util::file::file_exists;
 
     fn new_engine() -> (TempDir, Engine) {
