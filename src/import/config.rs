@@ -6,6 +6,7 @@ use std::result::Result;
 
 use serde::{Deserialize, Serialize};
 
+use engine::rocks::DBCompressionType;
 use tikv::config::{log_level_serde, DbConfig, MetricConfig};
 use tikv_util::config::{ReadableDuration, ReadableSize};
 use tikv_util::security::SecurityConfig;
@@ -56,9 +57,9 @@ impl Default for Config {
     fn default() -> Config {
         Config {
             import_dir: "/tmp/tikv/import".to_owned(),
-            num_threads: 8,
-            num_import_jobs: 8,
-            num_import_sst_jobs: 2,
+            num_threads: 16,
+            num_import_jobs: 24,
+            num_import_sst_jobs: 2, // this field is useless, kept just to satisfy `deny_unknown_fields`
             max_prepare_duration: ReadableDuration::minutes(5),
             region_split_size: ReadableSize::mb(512),
             stream_channel_window: 128,
@@ -101,13 +102,31 @@ impl Config {
 
 impl Default for TiKvConfig {
     fn default() -> Self {
+        let default_compression_per_level = [
+            DBCompressionType::Lz4,
+            DBCompressionType::No,
+            DBCompressionType::No,
+            DBCompressionType::No,
+            DBCompressionType::No,
+            DBCompressionType::No,
+            DBCompressionType::Lz4,
+        ];
+        let mut rocksdb = DbConfig::default();
+        rocksdb.defaultcf.write_buffer_size = ReadableSize::gb(1);
+        rocksdb.defaultcf.max_write_buffer_number = 8;
+        rocksdb.defaultcf.compression_per_level = default_compression_per_level;
+        rocksdb.writecf.compression_per_level = default_compression_per_level;
+
         Self {
             log_level: slog::Level::Info,
             log_file: "".to_owned(),
             log_rotation_timespan: ReadableDuration::hours(24),
-            server: tikv::server::Config::default(),
+            server: tikv::server::Config {
+                grpc_concurrency: 16,
+                ..Default::default()
+            },
             metric: MetricConfig::default(),
-            rocksdb: DbConfig::default(),
+            rocksdb,
             security: SecurityConfig::default(),
             import: Config::default(),
             storage: StorageConfig::default(),

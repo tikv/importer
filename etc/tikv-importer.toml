@@ -7,7 +7,7 @@ log-level = "info"
 
 [server]
 # set listening address.
-addr = "127.0.0.1:20170"
+addr = "0.0.0.0:8287"
 # size of thread pool for grpc server.
 grpc-concurrency = 16
 
