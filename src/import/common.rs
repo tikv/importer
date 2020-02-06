@@ -1,5 +1,6 @@
 // Copyright 2018 TiKV Project Authors. Licensed under Apache-2.0.
 
+use std::fmt;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -7,6 +8,7 @@ use kvproto::import_sstpb::*;
 use kvproto::kvrpcpb::*;
 use kvproto::metapb::*;
 
+use hex::ToHex;
 use pd_client::RegionInfo;
 
 use super::client::*;
@@ -132,6 +134,51 @@ pub fn find_region_peer(region: &Region, store_id: u64) -> Option<Peer> {
         .cloned()
 }
 
+/// Wrapper of any type which provides a more human-readable debug output.
+pub struct ReadableDebug<T>(pub T);
+
+impl fmt::Debug for ReadableDebug<(&[u8], &[u8])> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (start, end) = self.0;
+        let common_prefix_len = start.iter().zip(end).take_while(|(a, b)| a == b).count();
+        (&start[..common_prefix_len]).write_hex_upper(f)?;
+        f.write_str("{")?;
+        (&start[common_prefix_len..]).write_hex_upper(f)?;
+        f.write_str("..")?;
+        (&end[common_prefix_len..]).write_hex_upper(f)?;
+        f.write_str("}")
+    }
+}
+
+impl fmt::Debug for ReadableDebug<&Range> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        ReadableDebug((self.0.get_start(), self.0.get_end())).fmt(f)
+    }
+}
+
+impl fmt::Debug for ReadableDebug<&Region> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Region")
+            .field("id", &self.0.get_id())
+            .field(
+                "range",
+                &ReadableDebug((self.0.get_start_key(), self.0.get_end_key())),
+            )
+            .field("region_epoch", self.0.get_region_epoch())
+            .field("peers", &self.0.get_peers())
+            .finish()
+    }
+}
+
+impl fmt::Debug for ReadableDebug<&RegionInfo> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RegionInfo")
+            .field("region", &ReadableDebug(&self.0.region))
+            .field("leader", &self.0.leader)
+            .finish()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -191,5 +238,33 @@ mod tests {
         assert_eq!(ctx.raw_size(), 0);
         ctx.add(4);
         assert!(!ctx.should_stop_before(b"k5"));
+    }
+
+    #[test]
+    fn test_readable_range() {
+        assert_eq!(
+            format!("{:?}", ReadableDebug(&new_range(b"xyw", b"xyz"))),
+            "7879{77..7A}".to_owned()
+        );
+        assert_eq!(
+            format!("{:?}", ReadableDebug(&new_range(b"xy", b"xyz"))),
+            "7879{..7A}".to_owned()
+        );
+        assert_eq!(
+            format!("{:?}", ReadableDebug(&new_range(b"abc", b"def"))),
+            "{616263..646566}".to_owned()
+        );
+        assert_eq!(
+            format!("{:?}", ReadableDebug(&new_range(b"", b"def"))),
+            "{..646566}".to_owned()
+        );
+        assert_eq!(
+            format!("{:?}", ReadableDebug(&new_range(b"pqrst", b"pqrst"))),
+            "7071727374{..}".to_owned()
+        );
+        assert_eq!(
+            format!("{:?}", ReadableDebug(&new_range(b"\xab\xcd\xef", b""))),
+            "{ABCDEF..}".to_owned()
+        );
     }
 }

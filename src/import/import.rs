@@ -165,7 +165,7 @@ impl<Client: ImportClient> ImportJob<Client> {
                                     let split_dur = split_start.elapsed();
                                     IMPORT_SPLIT_SST_DURATION.observe(split_dur.as_secs_f64());
                                     if split_dur > Duration::from_secs(1) {
-                                        info!("dump sst completed"; "takes" => ?split_dur, "sst" => ?info);
+                                        info!("dump sst completed"; "takes" => ?split_dur, "range" => ?ReadableDebug(&info.0), "sst" => ?info.1);
                                     }
                                     let start = Instant::now_coarse();
                                     sst_tx.send(info).unwrap();
@@ -278,8 +278,10 @@ impl<Client: ImportClient> SubImportJob<Client> {
                 let sst = lazy_sst.into_sst_file()?;
                 let id = counter.fetch_add(1, Ordering::SeqCst);
                 let tag = format!("[ImportSSTJob {}:{}:{}]", engine.uuid(), sub_id, id);
-                let res =
-                    { ImportSSTJob::new(tag, sst, Arc::clone(&client), &self.speed_limit).run_import_sst_job() };
+                let res = {
+                    ImportSSTJob::new(tag, sst, Arc::clone(&client), &self.speed_limit)
+                        .run_import_sst_job()
+                };
                 // Entire range will be retried if any sst in this range failed,
                 // so there is no need for retry single sst
                 if res.is_err() {
@@ -328,7 +330,7 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
                     if self.sst.inside_region(&region) {
                         region
                     } else {
-                        warn!("sst out of region range"; "tag" => %self.tag, "region" => ?region);
+                        warn!("sst out of region range"; "tag" => %self.tag, "region" => ?ReadableDebug(&region));
                         return Err(Error::ImportSSTJobFailed(self.tag.clone()));
                     }
                 }
@@ -358,7 +360,7 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
     }
 
     fn import(&mut self, mut region: RegionInfo) -> Result<()> {
-        info!("upload and ingest sst"; "tag" => %self.tag, "region" => ?region);
+        info!("upload and ingest sst"; "tag" => %self.tag, "region" => ?ReadableDebug(&region));
 
         // Update SST meta for this region.
         {
