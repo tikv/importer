@@ -9,8 +9,8 @@ use tempdir::TempDir;
 use uuid::Uuid;
 
 use grpcio::{ChannelBuilder, Environment, Result, WriteFlags};
-use kvproto::import_kvpb::*;
 use kvproto::import_kvpb::mutation::Op as MutationOp;
+use kvproto::import_kvpb::*;
 
 use test_util::retry;
 use tikv_importer::import::{ImportKVServer, TiKvConfig};

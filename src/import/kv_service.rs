@@ -9,8 +9,8 @@ use grpcio::{ClientStreamingSink, RequestStream, RpcContext, UnarySink};
 use kvproto::import_kvpb::*;
 use uuid::Uuid;
 
-use txn_types::Key;
 use tikv_util::time::Instant;
+use txn_types::Key;
 
 use super::client::*;
 use super::metrics::{self, *};
@@ -71,11 +71,12 @@ impl ImportKv for ImportKVService {
         let label = "switch_mode";
         let timer = Instant::now_coarse();
         let min_available_ratio = self.cfg.min_available_ratio;
+        let security_mgr = self.importer.security_mgr.clone();
 
         ctx.spawn(
             self.threads
                 .spawn_fn(move || {
-                    let client = Client::new(req.get_pd_addr(), 1, min_available_ratio)?;
+                    let client = Client::new(req.get_pd_addr(), 1, min_available_ratio, security_mgr)?;
                     match client.switch_cluster(req.get_request()) {
                         Ok(_) => {
                             info!("switch cluster"; "req" => ?req.get_request());
@@ -294,6 +295,7 @@ impl ImportKv for ImportKVService {
         let label = "compact_cluster";
         let timer = Instant::now_coarse();
         let min_available_ratio = self.cfg.min_available_ratio;
+        let security_mgr = self.importer.security_mgr.clone();
 
         let mut compact = req.get_request().clone();
         if compact.has_range() {
@@ -311,7 +313,8 @@ impl ImportKv for ImportKVService {
         ctx.spawn(
             self.threads
                 .spawn_fn(move || {
-                    let client = Client::new(req.get_pd_addr(), 1, min_available_ratio)?;
+                    let client =
+                        Client::new(req.get_pd_addr(), 1, min_available_ratio, security_mgr)?;
                     match client.compact_cluster(&compact) {
                         Ok(_) => {
                             info!("compact cluster"; "req" => ?compact);
