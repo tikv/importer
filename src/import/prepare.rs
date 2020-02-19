@@ -328,7 +328,6 @@ mod tests {
 
     use tikv::config::DbConfig;
     use txn_types::Key;
-    use tikv_util::security::SecurityConfig;
 
     fn new_encoded_key(k: &[u8]) -> Vec<u8> {
         if k.is_empty() {
@@ -343,8 +342,8 @@ mod tests {
         let dir = TempDir::new("test_import_prepare_job").unwrap();
         let uuid = Uuid::new_v4();
         let db_cfg = DbConfig::default();
-        let security_cfg = SecurityConfig::default();
-        let engine = Arc::new(Engine::new(dir.path(), uuid, db_cfg, security_cfg).unwrap());
+        let security_mgr = Arc::default();
+        let engine = Arc::new(Engine::new(dir.path(), uuid, db_cfg, security_mgr).unwrap());
 
         // Generate entries to prepare.
         let (n, m) = (4, 4);

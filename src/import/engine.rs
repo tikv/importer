@@ -11,8 +11,8 @@ use std::sync::Arc;
 use crc::crc32::{self, Hasher32};
 use uuid::Uuid;
 
-use kvproto::import_kvpb::*;
 use kvproto::import_kvpb::mutation::Op as MutationOp;
+use kvproto::import_kvpb::*;
 use kvproto::import_sstpb::*;
 
 use engine::rocks::util::{new_engine_opt, CFOptions};
@@ -28,14 +28,14 @@ use tikv::raftstore::coprocessor::properties::{
     IndexHandle, RangeProperties, RangePropertiesCollectorFactory, SizeProperties,
 };
 use tikv::storage::mvcc::{Write, WriteType};
-use txn_types::{is_short_value, Key, TimeStamp};
 use tikv_util::config::MB;
+use txn_types::{is_short_value, Key, TimeStamp};
 
 use super::common::*;
 use super::Result;
 use crate::import::stream::SSTFile;
 use engine::rocks::util::security::encrypted_env_from_cipher_file;
-use tikv_util::security::SecurityConfig;
+use tikv_util::security::SecurityManager;
 
 /// Engine wraps rocksdb::DB with customized options to support efficient bulk
 /// write.
@@ -43,7 +43,7 @@ pub struct Engine {
     db: Arc<DB>,
     uuid: Uuid,
     db_cfg: DbConfig,
-    security_cfg: SecurityConfig,
+    security_mgr: Arc<SecurityManager>,
 }
 
 impl Engine {
@@ -51,7 +51,7 @@ impl Engine {
         path: P,
         uuid: Uuid,
         db_cfg: DbConfig,
-        security_cfg: SecurityConfig,
+        security_mgr: Arc<SecurityManager>,
     ) -> Result<Engine> {
         let db = {
             let (db_opts, cf_opts) = tune_dboptions_for_bulk_load(&db_cfg);
@@ -61,7 +61,7 @@ impl Engine {
             db: Arc::new(db),
             uuid,
             db_cfg,
-            security_cfg,
+            security_mgr,
         })
     }
 
@@ -113,7 +113,7 @@ impl Engine {
     }
 
     pub fn new_sst_writer(&self) -> Result<SSTWriter> {
-        SSTWriter::new(&self.db_cfg, &self.security_cfg, self.db.path())
+        SSTWriter::new(&self.db_cfg, &self.security_mgr, self.db.path())
     }
 
     pub fn get_size_properties(&self) -> Result<SizeProperties> {
@@ -259,12 +259,13 @@ pub struct SSTWriter {
 }
 
 impl SSTWriter {
-    pub fn new(db_cfg: &DbConfig, security_cfg: &SecurityConfig, path: &str) -> Result<SSTWriter> {
+    pub fn new(db_cfg: &DbConfig, security_mgr: &SecurityManager, path: &str) -> Result<SSTWriter> {
         let mut env = Arc::new(Env::new_mem());
         let mut base_env = None;
-        if !security_cfg.cipher_file.is_empty() {
+        let cipher_file = security_mgr.cipher_file();
+        if !cipher_file.is_empty() {
             base_env = Some(Arc::clone(&env));
-            env = encrypted_env_from_cipher_file(&security_cfg.cipher_file, Some(env))?;
+            env = encrypted_env_from_cipher_file(&cipher_file, Some(env))?;
         }
         let uuid = Uuid::new_v4().to_string();
         // Placeholder. SstFileWriter don't actually use block cache.
@@ -425,16 +426,19 @@ mod tests {
         RngCore, SeedableRng,
     };
     use tikv::raftstore::store::RegionSnapshot;
-    use tikv::storage::mvcc::MvccReader;
     use tikv::storage::config::BlockCacheConfig;
-    use tikv_util::file::file_exists;
+    use tikv::storage::mvcc::MvccReader;
+    use tikv_util::{
+        file::file_exists,
+        security::{SecurityConfig, SecurityManager},
+    };
 
     fn new_engine() -> (TempDir, Engine) {
         let dir = TempDir::new("test_import_engine").unwrap();
         let uuid = Uuid::new_v4();
         let db_cfg = DbConfig::default();
-        let security_cfg = SecurityConfig::default();
-        let engine = Engine::new(dir.path(), uuid, db_cfg, security_cfg).unwrap();
+        let security_mgr = Arc::default();
+        let engine = Engine::new(dir.path(), uuid, db_cfg, security_mgr).unwrap();
         (dir, engine)
     }
 
@@ -499,16 +503,16 @@ mod tests {
 
     #[test]
     fn test_sst_writer() {
-        test_sst_writer_with(1, &[CF_WRITE], &SecurityConfig::default());
-        test_sst_writer_with(1024, &[CF_DEFAULT, CF_WRITE], &SecurityConfig::default());
+        test_sst_writer_with(1, &[CF_WRITE], &SecurityManager::default());
+        test_sst_writer_with(1024, &[CF_DEFAULT, CF_WRITE], &SecurityManager::default());
 
         let temp_dir = TempDir::new("/tmp/encrypted_env_from_cipher_file").unwrap();
-        let security_cfg = create_security_cfg(&temp_dir);
-        test_sst_writer_with(1, &[CF_WRITE], &security_cfg);
-        test_sst_writer_with(1024, &[CF_DEFAULT, CF_WRITE], &security_cfg);
+        let security_mgr = create_security_mgr(&temp_dir);
+        test_sst_writer_with(1, &[CF_WRITE], &security_mgr);
+        test_sst_writer_with(1024, &[CF_DEFAULT, CF_WRITE], &security_mgr);
     }
 
-    fn create_security_cfg(temp_dir: &TempDir) -> SecurityConfig {
+    fn create_security_mgr(temp_dir: &TempDir) -> SecurityManager {
         let path = temp_dir.path().join("cipher_file");
         let mut cipher_file = File::create(&path).unwrap();
         cipher_file.write_all(b"ACFFDBCC").unwrap();
@@ -516,16 +520,17 @@ mod tests {
         let mut security_cfg = SecurityConfig::default();
         security_cfg.cipher_file = path.to_str().unwrap().to_owned();
         assert_eq!(file_exists(&security_cfg.cipher_file), true);
-        security_cfg
+        SecurityManager::new(&security_cfg).unwrap()
     }
 
-    fn test_sst_writer_with(value_size: usize, cf_names: &[&str], security_cfg: &SecurityConfig) {
+    fn test_sst_writer_with(value_size: usize, cf_names: &[&str], security_mgr: &SecurityManager) {
         let temp_dir = TempDir::new("_test_sst_writer").unwrap();
 
         let cfg = DbConfig::default();
         let mut db_opts = cfg.build_opt();
-        if !security_cfg.cipher_file.is_empty() {
-            let env = encrypted_env_from_cipher_file(&security_cfg.cipher_file, None).unwrap();
+        let cipher_file = security_mgr.cipher_file();
+        if !cipher_file.is_empty() {
+            let env = encrypted_env_from_cipher_file(&cipher_file, None).unwrap();
             db_opts.set_env(env);
         }
         let cache = BlockCacheConfig::default().build_shared_cache();
@@ -535,7 +540,7 @@ mod tests {
 
         let n = 10;
         let commit_ts = 10;
-        let mut w = SSTWriter::new(&cfg, &security_cfg, temp_dir.path().to_str().unwrap()).unwrap();
+        let mut w = SSTWriter::new(&cfg, &security_mgr, temp_dir.path().to_str().unwrap()).unwrap();
 
         // Write some keys.
         let value = vec![1u8; value_size];

@@ -8,27 +8,35 @@ use futures::{stream, Future, Stream};
 use tempdir::TempDir;
 use uuid::Uuid;
 
-use grpcio::{ChannelBuilder, Environment, Result, WriteFlags};
-use kvproto::import_kvpb::*;
+use grpcio::{ChannelBuilder, Environment, Result, RpcStatusCode, WriteFlags};
 use kvproto::import_kvpb::mutation::Op as MutationOp;
+use kvproto::import_kvpb::*;
 
-use test_util::retry;
+use test_util::{new_security_cfg, retry};
 use tikv_importer::import::{ImportKVServer, TiKvConfig};
+use tikv_util::security::SecurityManager;
 
-fn new_kv_server() -> (ImportKVServer, ImportKvClient, TempDir) {
+fn new_kv_server(enable_client_tls: bool) -> (ImportKVServer, ImportKvClient, TempDir) {
     let temp_dir = TempDir::new("test_import_kv_server").unwrap();
 
     let mut cfg = TiKvConfig::default();
     cfg.server.addr = "127.0.0.1:0".to_owned();
     cfg.import.import_dir = temp_dir.path().to_str().unwrap().to_owned();
+    cfg.security = new_security_cfg();
     let server = ImportKVServer::new(&cfg);
 
     let ch = {
         let env = Arc::new(Environment::new(1));
         let addr = server.bind_addrs().first().unwrap();
-        ChannelBuilder::new(env)
-            .keepalive_timeout(Duration::from_secs(60))
-            .connect(&format!("{}:{}", addr.0, addr.1))
+        let addr = format!("{}:{}", addr.0, addr.1);
+        let builder = ChannelBuilder::new(env).keepalive_timeout(Duration::from_secs(60));
+        if enable_client_tls {
+            SecurityManager::new(&cfg.security)
+                .unwrap()
+                .connect(builder, &addr)
+        } else {
+            builder.connect(&addr)
+        }
     };
     let client = ImportKvClient::new(ch);
 
@@ -38,8 +46,19 @@ fn new_kv_server() -> (ImportKVServer, ImportKvClient, TempDir) {
 }
 
 #[test]
+fn test_kv_service_without_tls() {
+    let (mut server, client, _) = new_kv_server(false);
+    server.start();
+
+    match retry!(client.get_version(&GetVersionRequest::default())) {
+        Err(grpcio::Error::RpcFailure(status)) if status.status == RpcStatusCode::UNAVAILABLE => {}
+        other => panic!("unexpected {:?}", other),
+    }
+}
+
+#[test]
 fn test_kv_service() {
-    let (mut server, client, _) = new_kv_server();
+    let (mut server, client, _) = new_kv_server(true);
     server.start();
 
     let resp = retry!(client.get_version(&GetVersionRequest::default())).unwrap();
