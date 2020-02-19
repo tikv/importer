@@ -66,6 +66,9 @@ audit: pre-audit
 clean:
 	cargo clean
 
+check:
+	cargo check --no-default-features --features "${ENABLE_FEATURES}"
+
 build:
 	cargo build --no-default-features --features "${ENABLE_FEATURES}"
 
