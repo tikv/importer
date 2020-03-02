@@ -205,7 +205,6 @@ mod tests {
 
     use tikv::config::DbConfig;
     use tikv::storage::types::Key;
-    use tikv_util::security::SecurityConfig;
 
     fn open_db<P: AsRef<Path>>(path: P) -> Arc<DB> {
         let path = path.as_ref().to_str().unwrap();
@@ -370,8 +369,8 @@ mod tests {
         let dir = TempDir::new("test_import_sst_file_stream").unwrap();
         let uuid = Uuid::new_v4();
         let db_cfg = DbConfig::default();
-        let security_cfg = SecurityConfig::default();
-        let engine = Arc::new(Engine::new(dir.path(), uuid, db_cfg, security_cfg).unwrap());
+        let security_mgr = Arc::default();
+        let engine = Arc::new(Engine::new(dir.path(), uuid, db_cfg, security_mgr).unwrap());
 
         for i in 0..16 {
             let k = Key::from_raw(&[i]).append_ts(0);
