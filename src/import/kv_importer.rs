@@ -15,7 +15,7 @@ use super::client::*;
 use super::engine::*;
 use super::import::*;
 use super::{Config, Error, Result};
-use tikv_util::security::SecurityConfig;
+use tikv_util::security::SecurityManager;
 
 pub struct Inner {
     engines: HashMap<Uuid, Arc<EngineFile>>,
@@ -27,11 +27,16 @@ pub struct KVImporter {
     cfg: Config,
     dir: EngineDir,
     inner: Mutex<Inner>,
+    pub(super) security_mgr: Arc<SecurityManager>,
 }
 
 impl KVImporter {
-    pub fn new(cfg: Config, db_cfg: DbConfig, security_cfg: SecurityConfig) -> Result<KVImporter> {
-        let dir = EngineDir::new(&cfg.import_dir, db_cfg, security_cfg)?;
+    pub fn new(
+        cfg: Config,
+        db_cfg: DbConfig,
+        security_mgr: Arc<SecurityManager>,
+    ) -> Result<KVImporter> {
+        let dir = EngineDir::new(&cfg.import_dir, db_cfg, security_mgr.clone())?;
         Ok(KVImporter {
             cfg,
             dir,
@@ -39,6 +44,7 @@ impl KVImporter {
                 engines: HashMap::default(),
                 import_jobs: HashMap::default(),
             }),
+            security_mgr,
         })
     }
 
@@ -117,6 +123,7 @@ impl KVImporter {
             pd_addr,
             self.cfg.num_import_jobs,
             self.cfg.min_available_ratio,
+            self.security_mgr.clone(),
         )?;
         let job = {
             let mut inner = self.inner.lock().unwrap();
@@ -186,7 +193,7 @@ impl KVImporter {
 /// is completed, the files are stored in `$root/$uuid`.
 pub struct EngineDir {
     db_cfg: DbConfig,
-    security_cfg: SecurityConfig,
+    security_mgr: Arc<SecurityManager>,
     root_dir: PathBuf,
     temp_dir: PathBuf,
 }
@@ -197,7 +204,7 @@ impl EngineDir {
     fn new<P: AsRef<Path>>(
         root: P,
         db_cfg: DbConfig,
-        security_cfg: SecurityConfig,
+        security_mgr: Arc<SecurityManager>,
     ) -> Result<EngineDir> {
         let root_dir = root.as_ref().to_owned();
         let temp_dir = root_dir.join(Self::TEMP_DIR);
@@ -207,7 +214,7 @@ impl EngineDir {
         fs::create_dir_all(&temp_dir)?;
         Ok(EngineDir {
             db_cfg,
-            security_cfg,
+            security_mgr,
             root_dir,
             temp_dir,
         })
@@ -229,7 +236,7 @@ impl EngineDir {
         if path.save.exists() {
             return Err(Error::FileExists(path.save));
         }
-        EngineFile::new(uuid, path, self.db_cfg.clone(), self.security_cfg.clone())
+        EngineFile::new(uuid, path, self.db_cfg.clone(), self.security_mgr.clone())
     }
 
     /// Creates an engine from `$root/$uuid` for importing data.
@@ -239,7 +246,7 @@ impl EngineDir {
             &path.save,
             uuid,
             self.db_cfg.clone(),
-            self.security_cfg.clone(),
+            self.security_mgr.clone(),
         )
     }
 
@@ -287,9 +294,9 @@ impl EngineFile {
         uuid: Uuid,
         path: EnginePath,
         db_cfg: DbConfig,
-        security_cfg: SecurityConfig,
+        security_mgr: Arc<SecurityManager>,
     ) -> Result<EngineFile> {
-        let engine = Engine::new(&path.temp, uuid, db_cfg, security_cfg)?;
+        let engine = Engine::new(&path.temp, uuid, db_cfg, security_mgr)?;
         Ok(EngineFile {
             uuid,
             path,
@@ -351,8 +358,7 @@ mod tests {
 
         let mut cfg = Config::default();
         cfg.import_dir = temp_dir.path().to_str().unwrap().to_owned();
-        let importer =
-            KVImporter::new(cfg, DbConfig::default(), SecurityConfig::default()).unwrap();
+        let importer = KVImporter::new(cfg, DbConfig::default(), Arc::default()).unwrap();
 
         let uuid = Uuid::new_v4();
         // Can not bind to an unopened engine.
@@ -372,7 +378,7 @@ mod tests {
 
         let uuid = Uuid::new_v4();
         let db_cfg = DbConfig::default();
-        let security_cfg = SecurityConfig::default();
+        let security_mgr = Arc::<SecurityManager>::default();
         let path = EnginePath {
             save: temp_dir.path().join("save"),
             temp: temp_dir.path().join("temp"),
@@ -381,10 +387,10 @@ mod tests {
         // Test close.
         {
             let mut f =
-                EngineFile::new(uuid, path.clone(), db_cfg.clone(), security_cfg.clone()).unwrap();
+                EngineFile::new(uuid, path.clone(), db_cfg.clone(), security_mgr.clone()).unwrap();
             // Cannot create the same file again.
             assert!(
-                EngineFile::new(uuid, path.clone(), db_cfg.clone(), security_cfg.clone()).is_err()
+                EngineFile::new(uuid, path.clone(), db_cfg.clone(), security_mgr.clone()).is_err()
             );
             assert!(path.temp.exists());
             assert!(!path.save.exists());
@@ -397,7 +403,7 @@ mod tests {
         // Test cleanup.
         {
             let f =
-                EngineFile::new(uuid, path.clone(), db_cfg.clone(), security_cfg.clone()).unwrap();
+                EngineFile::new(uuid, path.clone(), db_cfg.clone(), security_mgr.clone()).unwrap();
             assert!(path.temp.exists());
             assert!(!path.save.exists());
             drop(f);
