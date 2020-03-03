@@ -1,12 +1,14 @@
 // Copyright 2018 TiKV Project Authors. Licensed under Apache-2.0.
 
 use std::error::Error;
+use std::i32;
 use std::path::Path;
 use std::result::Result;
 
 use serde::{Deserialize, Serialize};
 
-use tikv::config::{log_level_serde, DbConfig, MetricConfig};
+use engine::rocks::DBCompressionType;
+use tikv::config::{log_level_serde, DbConfig, DefaultCfConfig, MetricConfig};
 use tikv_util::config::{ReadableDuration, ReadableSize};
 use tikv_util::security::SecurityConfig;
 
@@ -99,6 +101,36 @@ impl Config {
     }
 }
 
+pub fn bulk_load_default() -> DbConfig {
+    DbConfig {
+        enable_statistics: false,
+        max_background_jobs: 32,
+        defaultcf: DefaultCfConfig {
+            block_cache_size: ReadableSize::mb(128),
+            write_buffer_size: ReadableSize::gb(1),
+            max_write_buffer_number: 8,
+            compression_per_level: [
+                DBCompressionType::Lz4,
+                DBCompressionType::No,
+                DBCompressionType::No,
+                DBCompressionType::No,
+                DBCompressionType::No,
+                DBCompressionType::No,
+                DBCompressionType::Lz4,
+            ],
+            cache_index_and_filter_blocks: true,
+            target_file_size_base: ReadableSize::gb(1),
+            disable_auto_compactions: true,
+            soft_pending_compaction_bytes_limit: ReadableSize(0),
+            hard_pending_compaction_bytes_limit: ReadableSize(0),
+            level0_stop_writes_trigger: i32::MAX,
+            level0_slowdown_writes_trigger: i32::MAX,
+            ..Default::default()
+        },
+        ..Default::default()
+    }
+}
+
 impl Default for TiKvConfig {
     fn default() -> Self {
         Self {
@@ -107,7 +139,7 @@ impl Default for TiKvConfig {
             log_rotation_timespan: ReadableDuration::hours(24),
             server: tikv::server::Config::default(),
             metric: MetricConfig::default(),
-            rocksdb: DbConfig::default(),
+            rocksdb: bulk_load_default(),
             security: SecurityConfig::default(),
             import: Config::default(),
             storage: StorageConfig::default(),

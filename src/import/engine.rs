@@ -2,7 +2,6 @@
 
 use std::cmp;
 use std::fmt;
-use std::i32;
 use std::io;
 use std::ops::Deref;
 use std::path::{Path, PathBuf, MAIN_SEPARATOR};
@@ -17,16 +16,13 @@ use kvproto::import_sstpb::*;
 
 use engine::rocks::util::{new_engine_opt, CFOptions};
 use engine::rocks::{
-    BlockBasedOptions, Cache, ColumnFamilyOptions, DBIterator, DBOptions, Env, EnvOptions,
-    ExternalSstFileInfo, LRUCacheOptions, ReadOptions, SequentialFile, Writable,
-    WriteBatch as RawBatch, DB,
+    DBIterator, DBOptions, Env, EnvOptions, ExternalSstFileInfo, ReadOptions, SequentialFile,
+    Writable, WriteBatch as RawBatch, DB,
 };
 use engine::{CF_DEFAULT, CF_WRITE};
 use engine_rocksdb::SstFileWriter;
 use tikv::config::DbConfig;
-use tikv::raftstore::coprocessor::properties::{
-    IndexHandle, RangeProperties, RangePropertiesCollectorFactory, SizeProperties,
-};
+use tikv::raftstore::coprocessor::properties::{IndexHandle, RangeProperties, SizeProperties};
 use tikv::storage::mvcc::{Write, WriteType};
 use tikv_util::config::MB;
 use txn_types::{is_short_value, Key, TimeStamp};
@@ -371,39 +367,14 @@ pub fn get_approximate_ranges(
 }
 
 fn tune_dboptions_for_bulk_load(opts: &DbConfig) -> (DBOptions, CFOptions<'_>) {
-    const DISABLED: i32 = i32::MAX;
-
-    let mut db_opts = DBOptions::new();
-    db_opts.create_if_missing(true);
-    db_opts.enable_statistics(false);
+    let db_opts = opts.build_opt();
     // Vector memtable doesn't support concurrent write.
     db_opts.allow_concurrent_memtable_write(false);
-    // RocksDB preserves `max_background_jobs/4` for flush.
-    db_opts.set_max_background_jobs(opts.max_background_jobs);
 
-    // Put index and filter in block cache to restrict memory usage.
-    let mut cache_opts = LRUCacheOptions::new();
-    cache_opts.set_capacity(128 * MB as usize);
-    let mut block_base_opts = BlockBasedOptions::new();
-    block_base_opts.set_block_cache(&Cache::new_lru_cache(cache_opts));
-    block_base_opts.set_cache_index_and_filter_blocks(true);
-    let mut cf_opts = ColumnFamilyOptions::new();
-    cf_opts.set_block_based_table_factory(&block_base_opts);
-    cf_opts.compression_per_level(&opts.defaultcf.compression_per_level);
+    let mut cf_opts = opts.defaultcf.build_opt(&None);
     // Consider using a large write buffer but be careful about OOM.
-    cf_opts.set_write_buffer_size(opts.defaultcf.write_buffer_size.0);
-    cf_opts.set_target_file_size_base(opts.defaultcf.write_buffer_size.0);
     cf_opts.set_vector_memtable_factory(opts.defaultcf.write_buffer_size.0);
-    cf_opts.set_max_write_buffer_number(opts.defaultcf.max_write_buffer_number);
-    // Disable compaction and rate limit.
-    cf_opts.set_disable_auto_compactions(true);
-    cf_opts.set_soft_pending_compaction_bytes_limit(0);
-    cf_opts.set_hard_pending_compaction_bytes_limit(0);
-    cf_opts.set_level_zero_stop_writes_trigger(DISABLED);
-    cf_opts.set_level_zero_slowdown_writes_trigger(DISABLED);
-    // Add size properties to get approximate ranges wihout scan.
-    let f = Box::new(RangePropertiesCollectorFactory::default());
-    cf_opts.add_table_properties_collector_factory("tikv.size-properties-collector", f);
+
     (db_opts, CFOptions::new(CF_DEFAULT, cf_opts))
 }
 
