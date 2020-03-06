@@ -100,11 +100,11 @@ fn main() {
     let config = setup_config(&matches);
 
     // FIXME: Shouldn't need to construct tikv::config::TiKvConfig to use initial_logger.
-    let mut tikv_config = tikv::config::TiKvConfig::default();
-    tikv_config.log_level = config.log_level;
-    tikv_config.log_file = config.log_file.clone();
-    tikv_config.log_rotation_timespan = config.log_rotation_timespan.clone();
-    initial_logger(&tikv_config);
+    let mut logger_config = tikv::config::TiKvConfig::default();
+    logger_config.log_level = config.log_level;
+    logger_config.log_file = config.log_file.clone();
+    logger_config.log_rotation_timespan = config.log_rotation_timespan.clone();
+    initial_logger(&logger_config);
 
     tikv_util::set_panic_hook(false, &config.storage.data_dir);
 
