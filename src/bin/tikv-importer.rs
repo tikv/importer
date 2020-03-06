@@ -106,14 +106,6 @@ fn main() {
     tikv_config.log_rotation_timespan = config.log_rotation_timespan.clone();
     initial_logger(&tikv_config);
 
-    if let Some(status_server_address) = matches.value_of("status-server") {
-        let mut status_server = tikv::server::status_server::StatusServer::new(1, tikv_config);
-
-        if let Err(e) = status_server.start(status_server_address.to_owned()) {
-            warn!("fail to setup status server: {:?}", e)
-        }
-    }
-
     tikv_util::set_panic_hook(false, &config.storage.data_dir);
 
     initial_metric(&config.metric, None);
@@ -142,6 +134,9 @@ fn overwrite_config_with_cmd_args(config: &mut TiKvConfig, matches: &ArgMatches<
     }
     if let Some(import_dir) = matches.value_of("import-dir") {
         config.import.import_dir = import_dir.to_owned();
+    }
+    if let Some(status_server_address) = matches.value_of("status-server") {
+        config.status_server_address = Some(status_server_address.to_owned())
     }
 }
 
