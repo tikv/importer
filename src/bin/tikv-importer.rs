@@ -88,16 +88,31 @@ fn main() {
                 .value_name("PATH")
                 .help("Set the directory to store importing kv data"),
         )
+        .arg(
+            Arg::with_name("status-server")
+                .long("status-server")
+                .takes_value(true)
+                .value_name("IP:PORT")
+                .help("set the status server address"),
+        )
         .get_matches();
 
     let config = setup_config(&matches);
 
     // FIXME: Shouldn't need to construct tikv::config::TiKvConfig to use initial_logger.
-    let mut logger_config = tikv::config::TiKvConfig::default();
-    logger_config.log_level = config.log_level;
-    logger_config.log_file = config.log_file.clone();
-    logger_config.log_rotation_timespan = config.log_rotation_timespan.clone();
-    initial_logger(&logger_config);
+    let mut tikv_config = tikv::config::TiKvConfig::default();
+    tikv_config.log_level = config.log_level;
+    tikv_config.log_file = config.log_file.clone();
+    tikv_config.log_rotation_timespan = config.log_rotation_timespan.clone();
+    initial_logger(&tikv_config);
+
+    if let Some(status_server_address) = matches.value_of("status-server") {
+        let mut status_server = tikv::server::status_server::StatusServer::new(1, tikv_config);
+
+        if let Err(e) = status_server.start(status_server_address.to_owned()) {
+            warn!("fail to setup status server: {:?}", e)
+        }
+    }
 
     tikv_util::set_panic_hook(false, &config.storage.data_dir);
 
