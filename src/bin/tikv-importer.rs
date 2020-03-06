@@ -107,7 +107,7 @@ fn main() {
     initial_logger(&tikv_config);
 
     if let Some(status_server_address) = matches.value_of("status-server") {
-        let mut status_server = tikv::server::status_server::StatusServer::new(1, tikv_config);
+        let mut status_server = tikv::server::status_server::StatusServer::new(1, config);
 
         if let Err(e) = status_server.start(status_server_address.to_owned()) {
             warn!("fail to setup status server: {:?}", e)
