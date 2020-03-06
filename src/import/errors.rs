@@ -107,6 +107,9 @@ quick_error! {
         ResourceTemporarilyUnavailable(msg: String) {
             display("{}", msg)
         }
+        Security(msg: String) {
+            display("{}", msg)
+        }
     }
 }
 

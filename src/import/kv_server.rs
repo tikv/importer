@@ -7,7 +7,7 @@ use std::sync::Arc;
 use grpcio::{ChannelBuilder, EnvBuilder, Server as GrpcServer, ServerBuilder};
 use kvproto::import_kvpb::create_import_kv;
 
-use tikv_util::thd_name;
+use tikv_util::{security::SecurityManager, thd_name};
 
 use super::{ImportKVService, KVImporter, TiKvConfig};
 
@@ -22,10 +22,12 @@ impl ImportKVServer {
         let cfg = &tikv.server;
         let addr = SocketAddr::from_str(&cfg.addr).unwrap();
 
+        let security_mgr = Arc::new(SecurityManager::new(&tikv.security).unwrap());
+
         let importer = KVImporter::new(
             tikv.import.clone(),
             tikv.rocksdb.clone(),
-            tikv.security.clone(),
+            security_mgr.clone(),
         )
         .unwrap();
         let import_service = ImportKVService::new(tikv.import.clone(), Arc::new(importer));
@@ -44,8 +46,12 @@ impl ImportKVServer {
             .max_receive_message_len(-1)
             .build_args();
 
-        let grpc_server = ServerBuilder::new(Arc::clone(&env))
-            .bind(format!("{}", addr.ip()), addr.port())
+        let grpc_server = security_mgr
+            .bind(
+                ServerBuilder::new(env.clone()),
+                &addr.ip().to_string(),
+                addr.port(),
+            )
             .channel_args(channel_args)
             .register_service(create_import_kv(import_service))
             .build()

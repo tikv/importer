@@ -204,7 +204,6 @@ mod tests {
     use tempdir::TempDir;
 
     use tikv::config::DbConfig;
-    use tikv_util::security::SecurityConfig;
     use txn_types::{Key, TimeStamp};
 
     fn open_db<P: AsRef<Path>>(path: P) -> Arc<DB> {
@@ -370,8 +369,8 @@ mod tests {
         let dir = TempDir::new("test_import_sst_file_stream").unwrap();
         let uuid = Uuid::new_v4();
         let db_cfg = DbConfig::default();
-        let security_cfg = SecurityConfig::default();
-        let engine = Arc::new(Engine::new(dir.path(), uuid, db_cfg, security_cfg).unwrap());
+        let security_mgr = Arc::default();
+        let engine = Arc::new(Engine::new(dir.path(), uuid, db_cfg, security_mgr).unwrap());
 
         for i in 0..16 {
             let k = Key::from_raw(&[i]).append_ts(TimeStamp::zero());
