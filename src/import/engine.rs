@@ -8,7 +8,6 @@ use std::ops::Deref;
 use std::path::{Path, PathBuf, MAIN_SEPARATOR};
 use std::sync::Arc;
 
-use crc::crc32::{self, Hasher32};
 use uuid::Uuid;
 
 use kvproto::import_kvpb::mutation::Op as MutationOp;
@@ -18,15 +17,12 @@ use kvproto::import_sstpb::*;
 use engine::rocks::util::{new_engine_opt, CFOptions};
 use engine::rocks::{
     BlockBasedOptions, Cache, ColumnFamilyOptions, DBIterator, DBOptions, Env, EnvOptions,
-    ExternalSstFileInfo, LRUCacheOptions, ReadOptions, SequentialFile, Writable,
-    WriteBatch as RawBatch, DB,
+    ExternalSstFileInfo, LRUCacheOptions, ReadOptions, SequentialFile, Writable, DB,
 };
-use engine::{CF_DEFAULT, CF_WRITE};
-use engine_rocksdb::SstFileWriter;
+use engine_traits::{CF_DEFAULT, CF_WRITE, IndexHandle};
+use engine_rocksdb::{SstFileWriter, WriteBatch as RawBatch};
 use tikv::config::DbConfig;
-use tikv::raftstore::coprocessor::properties::{
-    IndexHandle, RangeProperties, RangePropertiesCollectorFactory, SizeProperties,
-};
+use engine_rocks::{RangeProperties, RangePropertiesCollectorFactory, SizeProperties, UserCollectedPropertiesDecoder};
 use tikv::storage::mvcc::{Write, WriteType};
 use tikv_util::config::MB;
 use txn_types::{is_short_value, Key, TimeStamp};
@@ -120,7 +116,7 @@ impl Engine {
         let mut res = SizeProperties::default();
         let collection = self.get_properties_of_all_tables()?;
         for (_, v) in &*collection {
-            let props = RangeProperties::decode(v.user_collected_properties())?;
+            let props = RangeProperties::decode(&UserCollectedPropertiesDecoder(v.user_collected_properties()))?;
             let mut prev_size = 0;
             for (key, range) in props.offsets {
                 res.index_handles.add(
@@ -202,7 +198,7 @@ impl LazySSTInfo {
         // TODO: If we can compute the CRC simultaneously with upload, we don't
         // need to open() and read() the file twice.
         let mut writer = Crc32Writer {
-            digest: crc32::Digest::new(crc32::IEEE),
+            digest: crc32fast::Hasher::new(),
             length: 0,
         };
         io::copy(&mut seq_file, &mut writer)?;
@@ -210,7 +206,7 @@ impl LazySSTInfo {
         let mut meta = SstMeta::default();
         meta.set_uuid(Uuid::new_v4().as_bytes().to_vec());
         meta.set_range(self.range.clone());
-        meta.set_crc32(writer.digest.sum32());
+        meta.set_crc32(writer.digest.finalize());
         meta.set_length(writer.length);
         meta.set_cf_name(self.cf_name.to_owned());
 
@@ -232,13 +228,13 @@ impl Drop for LazySSTInfo {
 }
 
 struct Crc32Writer {
-    digest: crc32::Digest,
+    digest: crc32fast::Hasher,
     length: u64,
 }
 
 impl io::Write for Crc32Writer {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.digest.write(buf);
+        self.digest.update(buf);
         self.length += buf.len() as u64;
         Ok(buf.len())
     }
@@ -425,7 +421,7 @@ mod tests {
         rngs::{OsRng, StdRng},
         RngCore, SeedableRng,
     };
-    use tikv::raftstore::store::RegionSnapshot;
+    use raftstore::store::RegionSnapshot;
     use tikv::storage::config::BlockCacheConfig;
     use tikv::storage::mvcc::MvccReader;
     use tikv_util::{
@@ -584,7 +580,7 @@ mod tests {
         // Make sure that all kvs are right.
         for i in 0..n {
             let k = Key::from_raw(&[i]);
-            let v = reader.get(&k, TimeStamp::new(commit_ts)).unwrap().unwrap();
+            let v = reader.get(&k, TimeStamp::new(commit_ts), false).unwrap().unwrap();
             assert_eq!(&v, &value);
         }
         // Make sure that no extra keys are added.
