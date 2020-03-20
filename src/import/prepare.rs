@@ -73,7 +73,7 @@ impl<Client: ImportClient> PrepareJob<Client> {
 
     pub fn run(&self) -> Result<Vec<RangeInfo>> {
         let start = Instant::now();
-        info!("start"; "tag" => %self.tag);
+        info!("split and scatter"; "tag" => %self.tag);
 
         let props = match self.engine.get_size_properties() {
             Ok(v) => {
@@ -91,9 +91,7 @@ impl<Client: ImportClient> PrepareJob<Client> {
         IMPORT_EACH_PHASE.with_label_values(&["prepare"]).set(0.0);
 
         let num_prepares = prepares?;
-        info!(
-            "prepare"; "tag" => %self.tag, "ranges" => %num_prepares, "takes" => ?start.elapsed(),
-        );
+        info!("split and scatter completed"; "tag" => %self.tag, "ranges" => %num_prepares, "takes" => ?start.elapsed());
 
         // One `SubImportJob` is responsible for one range, the max number of `SubImportJob`
         // is `num_import_jobs`.
@@ -169,7 +167,7 @@ impl<Client: ImportClient> PrepareRangeJob<Client> {
 
     fn run(&self, wait_scatter_regions: &mut Vec<u64>) -> Result<bool> {
         let start = Instant::now();
-        info!("start"; "tag" => %self.tag, "range" => ?self.range);
+        info!("prepare range"; "tag" => %self.tag, "range" => ?self.range);
 
         for i in 0..MAX_RETRY_TIMES {
             if i != 0 {
@@ -187,7 +185,7 @@ impl<Client: ImportClient> PrepareRangeJob<Client> {
             for _ in 0..MAX_RETRY_TIMES {
                 match self.prepare(region, wait_scatter_regions) {
                     Ok(v) => {
-                        info!("prepare"; "tag" => %self.tag, "takes" => ?start.elapsed());
+                        info!("prepare range completed"; "tag" => %self.tag, "range" => ?self.range, "takes" => ?start.elapsed());
                         return Ok(v);
                     }
                     Err(Error::UpdateRegion(new_region)) => {
@@ -199,7 +197,7 @@ impl<Client: ImportClient> PrepareRangeJob<Client> {
             }
         }
 
-        error!("run out of time"; "tag" => %self.tag);
+        error!("prepare range failed (too many tries)"; "tag" => %self.tag);
         Err(Error::PrepareRangeJobFailed(self.tag.clone()))
     }
 
@@ -285,7 +283,7 @@ impl<Client: ImportClient> PrepareRangeJob<Client> {
 
         match res {
             Ok(mut resp) => {
-                info!("split"; "tag" => %self.tag, "region" => ?region, "at" => ::log_wrappers::Key(split_key));
+                info!("split completed"; "tag" => %self.tag, "region" => ?ReadableDebug(region), "at" => ::log_wrappers::Key(split_key));
                 // Just assume that the leader will be at the same store.
                 let left = resp.take_left();
                 let leader = match region.leader {
@@ -296,7 +294,7 @@ impl<Client: ImportClient> PrepareRangeJob<Client> {
             }
             Err(e) => {
                 warn!(
-                    "split failed"; "tag" => %self.tag, "region" => ?region, "at" => ::log_wrappers::Key(split_key), "err" => %e
+                    "split failed"; "tag" => %self.tag, "region" => ?ReadableDebug(region), "at" => ::log_wrappers::Key(split_key), "err" => %e
                 );
                 Err(e)
             }
@@ -306,11 +304,11 @@ impl<Client: ImportClient> PrepareRangeJob<Client> {
     fn scatter_region(&self, region: &RegionInfo) -> Result<()> {
         match self.client.scatter_region(region) {
             Ok(_) => {
-                info!("scatter region"; "tag" => %self.tag, "region" => %region.get_id());
+                info!("scatter completed"; "tag" => %self.tag, "region" => %region.get_id());
                 Ok(())
             }
             Err(e) => {
-                warn!("scatter region failed"; "tag" => %self.tag, "region" => %region.get_id(), "err" => %e);
+                warn!("scatter failed"; "tag" => %self.tag, "region" => %region.get_id(), "err" => %e);
                 Err(e)
             }
         }

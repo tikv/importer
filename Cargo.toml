@@ -46,6 +46,7 @@ txn_types = { git = "https://github.com/tikv/tikv.git", branch = "release-4.0", 
 tipb = { git = "https://github.com/pingcap/tipb.git", default-features = false, features = ["prost-codec"] }
 toml = "0.4"
 uuid = { version = "0.7", features = [ "serde", "v4" ] }
+hex = "0.3"
 
 [dependencies.engine_rocksdb]
 git = "https://github.com/tikv/rust-rocksdb.git"
