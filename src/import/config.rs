@@ -23,6 +23,7 @@ pub struct TiKvConfig {
     pub storage: StorageConfig,
     pub server: tikv::server::Config,
     pub metric: MetricConfig,
+    pub status_server_address: Option<String>,
     pub rocksdb: DbConfig,
     pub security: SecurityConfig,
     pub import: Config,
@@ -125,6 +126,7 @@ impl Default for TiKvConfig {
                 grpc_concurrency: 16,
                 ..Default::default()
             },
+            status_server_address: None,
             metric: MetricConfig::default(),
             rocksdb,
             security: SecurityConfig::default(),
