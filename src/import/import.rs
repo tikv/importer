@@ -53,7 +53,7 @@ impl<Client: ImportClient> ImportJob<Client> {
 
     pub fn run(&self) -> Result<()> {
         let start = Instant::now();
-        info!("start"; "tag" => %self.tag);
+        info!("import engine"; "tag" => %self.tag);
 
         // Join and check results.
         let mut res = Ok(());
@@ -96,7 +96,7 @@ impl<Client: ImportClient> ImportJob<Client> {
 
         match res {
             Ok(_) => {
-                info!("import engine"; "tag" => %self.tag, "takes" => ?start.elapsed());
+                info!("import engine completed"; "tag" => %self.tag, "takes" => ?start.elapsed());
                 Ok(())
             }
             Err(e) => {
@@ -119,10 +119,10 @@ impl<Client: ImportClient> ImportJob<Client> {
         let speed_limit = Arc::clone(&self.speed_limit);
 
         thread::Builder::new()
-            .name("import-job".to_owned())
+            .name(format!("import-job-{}", id))
             .spawn(move || {
                 let job = SubImportJob::new(id, rx, client, engine, counter, speed_limit);
-                job.run(retry_ranges)
+                job.run_sub_import_job(retry_ranges)
             })
             .unwrap()
     }
@@ -140,9 +140,12 @@ impl<Client: ImportClient> ImportJob<Client> {
         let tag = self.tag.clone();
 
         thread::Builder::new()
-            .name("dispatch-job".to_owned())
+            .name(format!("dispatch-job-{}", id))
             .spawn(move || {
+                let mut ranges_handled = 0;
+
                 'NEXT_RANGE: while let Ok(range) = range_rx.recv() {
+                    ranges_handled += 1;
                     'RETRY: for _ in 0..MAX_RETRY_TIMES {
                         let cfg = cfg.clone();
                         let client = Arc::clone(&client);
@@ -159,7 +162,11 @@ impl<Client: ImportClient> ImportJob<Client> {
                             let split_start = Instant::now_coarse();
                             match stream.next() {
                                 Ok(Some(info)) => {
-                                    IMPORT_SPLIT_SST_DURATION.observe(split_start.elapsed_secs());
+                                    let split_dur = split_start.elapsed();
+                                    IMPORT_SPLIT_SST_DURATION.observe(split_dur.as_secs_f64());
+                                    if split_dur > Duration::from_secs(1) {
+                                        info!("dump sst completed"; "takes" => ?split_dur, "range" => ?ReadableDebug(&info.0), "sst" => ?info.1);
+                                    }
                                     let start = Instant::now_coarse();
                                     sst_tx.send(info).unwrap();
                                     IMPORT_SST_DELIVERY_DURATION.observe(start.elapsed_secs());
@@ -171,7 +178,9 @@ impl<Client: ImportClient> ImportJob<Client> {
                     }
                 }
 
-                info!("dispatch-job done"; "tag" => %tag, "id" => %id);
+                if ranges_handled > 0 {
+                    info!("dispatch-job done"; "tag" => %tag, "id" => %id, "ranges_handled" => %ranges_handled);
+                }
                 Ok(())
             })
             .unwrap()
@@ -182,6 +191,8 @@ impl<Client: ImportClient> ImportJob<Client> {
         ranges: Vec<Range>,
         retry_ranges: Arc<Mutex<Vec<Range>>>,
     ) -> Vec<JoinHandle<Result<()>>> {
+        info!("run import threads"; "tag" => %self.tag, "num_import_jobs" => %self.cfg.num_import_jobs);
+
         let mut handles: Vec<JoinHandle<Result<()>>> = Vec::new();
         let finished_ranges = Arc::new(Mutex::new(Vec::new()));
         let (sst_tx, sst_rx) = bounded(self.cfg.num_import_jobs);
@@ -210,7 +221,7 @@ impl<Client: ImportClient> ImportJob<Client> {
             ));
         }
 
-        for (_, range) in ranges.into_iter().enumerate() {
+        for range in ranges {
             let start = Instant::now_coarse();
             range_tx.send(range).unwrap();
             IMPORT_RANGE_DELIVERY_DURATION.observe(start.elapsed_secs());
@@ -252,7 +263,7 @@ impl<Client: ImportClient> SubImportJob<Client> {
         }
     }
 
-    fn run(&self, retry_ranges: Arc<Mutex<Vec<Range>>>) -> Result<()> {
+    fn run_sub_import_job(&self, retry_ranges: Arc<Mutex<Vec<Range>>>) -> Result<()> {
         let sub_id = self.id;
         let client = Arc::clone(&self.client);
         let engine = Arc::clone(&self.engine);
@@ -267,8 +278,10 @@ impl<Client: ImportClient> SubImportJob<Client> {
                 let sst = lazy_sst.into_sst_file()?;
                 let id = counter.fetch_add(1, Ordering::SeqCst);
                 let tag = format!("[ImportSSTJob {}:{}:{}]", engine.uuid(), sub_id, id);
-                let res =
-                    { ImportSSTJob::new(tag, sst, Arc::clone(&client), &self.speed_limit).run() };
+                let res = {
+                    ImportSSTJob::new(tag, sst, Arc::clone(&client), &self.speed_limit)
+                        .run_import_sst_job()
+                };
                 // Entire range will be retried if any sst in this range failed,
                 // so there is no need for retry single sst
                 if res.is_err() {
@@ -302,9 +315,9 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
         }
     }
 
-    fn run(&mut self) -> Result<()> {
+    fn run_import_sst_job(&mut self) -> Result<()> {
         let start = Instant::now();
-        info!("start"; "tag" => %self.tag, "sst" => ?self.sst);
+        info!("import sst"; "tag" => %self.tag, "sst" => ?self.sst);
 
         for i in 0..MAX_RETRY_TIMES {
             if i != 0 {
@@ -317,7 +330,7 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
                     if self.sst.inside_region(&region) {
                         region
                     } else {
-                        warn!("sst out of region range"; "tag" => %self.tag, "region" => ?region);
+                        warn!("sst out of region range"; "tag" => %self.tag, "region" => ?ReadableDebug(&region));
                         return Err(Error::ImportSSTJobFailed(self.tag.clone()));
                     }
                 }
@@ -330,7 +343,7 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
             for _ in 0..MAX_RETRY_TIMES {
                 match self.import(region) {
                     Ok(_) => {
-                        info!("import sst"; "tag" => %self.tag, "takes" => ?start.elapsed());
+                        info!("import sst completed"; "tag" => %self.tag, "takes" => ?start.elapsed());
                         return Ok(());
                     }
                     Err(Error::UpdateRegion(new_region)) => {
@@ -342,12 +355,12 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
             }
         }
 
-        error!("run out of time"; "tag" => %self.tag);
+        error!("import sst failed (too many tries)"; "tag" => %self.tag);
         Err(Error::ImportSSTJobFailed(self.tag.clone()))
     }
 
     fn import(&mut self, mut region: RegionInfo) -> Result<()> {
-        info!("start import sst"; "tag" => %self.tag, "region" => ?region);
+        info!("upload and ingest sst"; "tag" => %self.tag, "region" => ?ReadableDebug(&region));
 
         // Update SST meta for this region.
         {
@@ -399,20 +412,19 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
     }
 
     fn upload(&self, region: &RegionInfo) -> Result<()> {
+        let start = Instant::now();
+        let size = self.sst.info.file_size;
+
         for peer in region.get_peers() {
-            let size = self.sst.info.file_size;
             self.speed_limit.take(&self.tag, size);
 
             let file = self.sst.info.open()?;
             let upload = UploadStream::new(self.sst.meta.clone(), file);
             let store_id = peer.get_store_id();
             let mut err_logged = false;
-            while !self
-                .client
-                .is_space_enough(store_id, self.sst.info.file_size)?
-            {
+            while !self.client.is_space_enough(store_id, size)? {
                 if !err_logged {
-                    warn!("no enough space, will retry silently"; "tag" => %self.tag, "store" => %store_id);
+                    warn!("no enough space, will retry silently"; "tag" => %self.tag, "store" => %store_id, "size" => %size);
                     err_logged = true;
                 }
                 let label = format!("{}", store_id);
@@ -423,20 +435,23 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
                     STORE_UNAVAILABLE_WAIT_INTERVAL_MILLIS,
                 ))
             }
-            match self.client.upload_sst(store_id, upload) {
-                Ok(_) => {
-                    info!("upload"; "tag" => %self.tag, "store" => %store_id);
-                }
-                Err(e) => {
-                    warn!("upload failed"; "tag" => %self.tag, "store" => %store_id, "err" => %e);
-                    return Err(e);
-                }
+            if let Err(e) = self.client.upload_sst(store_id, upload) {
+                warn!("upload failed"; "tag" => %self.tag, "store" => %store_id, "err" => %e);
+                return Err(e);
             }
+        }
+
+        let takes = start.elapsed();
+        if takes > Duration::from_secs(1) {
+            let speed = size as f64 / (takes.as_secs_f64() * 1048576.0);
+            info!("upload completed"; "tag" => %self.tag, "takes" => ?start.elapsed(), "speed(MB/s)" => %speed, "size" => %size, "region_id" => %region.id);
         }
         Ok(())
     }
 
     fn ingest(&self, region: &RegionInfo) -> Result<()> {
+        let start = Instant::now();
+
         let ctx = new_context(region);
         let store_id = ctx.get_peer().get_store_id();
 
@@ -460,7 +475,7 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
 
         match res {
             Ok(_) => {
-                info!("ingest"; "tag" => %self.tag, "store" => %store_id);
+                info!("ingest completed"; "tag" => %self.tag, "takes" => ?start.elapsed(), "store" => %store_id, "region_id" => %region.id);
                 Ok(())
             }
             Err(e) => {

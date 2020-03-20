@@ -222,7 +222,7 @@ impl Drop for LazySSTInfo {
     fn drop(&mut self) {
         match self.env.delete_file(self.file_path.to_str().unwrap()) {
             Ok(()) => {
-                info!("cleanup SST"; "file_path" => ?self.file_path);
+                info!("cleanup SST completed"; "file_path" => ?self.file_path);
             }
             Err(err) => {
                 warn!("cleanup SST failed"; "file_path" => ?self.file_path, "err" => %err);

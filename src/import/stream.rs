@@ -32,7 +32,7 @@ impl fmt::Debug for SSTFile {
         let uuid = Uuid::from_slice(self.meta.get_uuid()).unwrap();
         f.debug_struct("SSTFile")
             .field("uuid", &uuid)
-            .field("range", self.meta.get_range())
+            .field("range", &ReadableDebug(self.meta.get_range()))
             .field("length", &self.meta.get_length())
             .field("cf_name", &self.meta.get_cf_name().to_owned())
             .finish()
