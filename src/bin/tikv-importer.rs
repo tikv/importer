@@ -88,6 +88,13 @@ fn main() {
                 .value_name("PATH")
                 .help("Set the directory to store importing kv data"),
         )
+        .arg(
+            Arg::with_name("status-server")
+                .long("status-server")
+                .takes_value(true)
+                .value_name("IP:PORT")
+                .help("set the status server address"),
+        )
         .get_matches();
 
     let config = setup_config(&matches);
@@ -127,6 +134,9 @@ fn overwrite_config_with_cmd_args(config: &mut TiKvConfig, matches: &ArgMatches<
     }
     if let Some(import_dir) = matches.value_of("import-dir") {
         config.import.import_dir = import_dir.to_owned();
+    }
+    if let Some(status_server_address) = matches.value_of("status-server") {
+        config.status_server_address = Some(status_server_address.to_owned())
     }
 }
 
