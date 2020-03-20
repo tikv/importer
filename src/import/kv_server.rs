@@ -10,11 +10,13 @@ use kvproto::import_kvpb::create_import_kv;
 use tikv_util::{security::SecurityManager, thd_name};
 
 use super::{ImportKVService, KVImporter, TiKvConfig};
+use crate::import::status_server::StatusServer;
 
 /// ImportKVServer is a gRPC server that provides service to write key-value
 /// pairs into RocksDB engines for later ingesting into tikv-server.
 pub struct ImportKVServer {
     grpc_server: GrpcServer,
+    status_server: Option<StatusServer>,
 }
 
 impl ImportKVServer {
@@ -57,15 +59,28 @@ impl ImportKVServer {
             .build()
             .unwrap();
 
-        ImportKVServer { grpc_server }
+        let status_server = tikv
+            .status_server_address
+            .as_ref()
+            .map(|address| StatusServer::new(address));
+        ImportKVServer {
+            grpc_server,
+            status_server,
+        }
     }
 
     pub fn start(&mut self) {
         self.grpc_server.start();
+        if let Some(server) = &mut self.status_server {
+            server.start();
+        }
     }
 
     pub fn shutdown(&mut self) {
         self.grpc_server.shutdown();
+        if let Some(server) = self.status_server.take() {
+            server.shutdown();
+        }
     }
 
     pub fn bind_addrs(&self) -> &[(String, u16)] {
