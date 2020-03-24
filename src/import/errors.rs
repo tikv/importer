@@ -13,7 +13,6 @@ use quick_error::quick_error;
 use uuid::{self, Uuid};
 
 use pd_client::{Error as PdError, RegionInfo};
-use tikv::raftstore::errors::Error as RaftStoreError;
 use tikv_util::codec::Error as CodecError;
 
 quick_error! {
@@ -51,11 +50,6 @@ quick_error! {
             from()
             description("Engine error")
             display("Engine {:?}", err)
-        }
-        RaftStore(err: RaftStoreError) {
-            from()
-            cause(err)
-            description(err.description())
         }
         ParseIntError(err: ParseIntError) {
             from()
