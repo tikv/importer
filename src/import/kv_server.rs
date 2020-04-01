@@ -62,7 +62,7 @@ impl ImportKVServer {
         self.grpc_server.shutdown();
     }
 
-    pub fn bind_addrs(&self) -> &[(String, u16)] {
+    pub fn bind_addrs(&self) -> impl Iterator<Item = (&String, u16)> + '_ {
         self.grpc_server.bind_addrs()
     }
 }

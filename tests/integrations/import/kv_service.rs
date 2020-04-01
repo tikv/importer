@@ -24,7 +24,7 @@ fn new_kv_server() -> (ImportKVServer, ImportKvClient, TempDir) {
 
     let ch = {
         let env = Arc::new(Environment::new(1));
-        let addr = server.bind_addrs().first().unwrap();
+        let addr = server.bind_addrs().next().unwrap();
         ChannelBuilder::new(env)
             .keepalive_timeout(Duration::from_secs(60))
             .connect(&format!("{}:{}", addr.0, addr.1))

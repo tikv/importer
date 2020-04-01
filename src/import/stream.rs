@@ -12,7 +12,7 @@ use kvproto::metapb::*;
 use super::client::*;
 use super::common::*;
 use super::engine::*;
-use super::{Config, Error, Result};
+use super::{Config, Result};
 
 pub struct SSTFile {
     pub meta: SSTMeta,
