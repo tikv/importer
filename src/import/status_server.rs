@@ -2,22 +2,25 @@
 
 use tikv::server::status_server::StatusServer as TiKVStatusServer;
 use tikv_util::worker::dummy_future_scheduler;
+use tikv_util::security::SecurityConfig;
 
 pub struct StatusServer {
     inner_server: TiKVStatusServer,
     addr: String,
+    security_cfg: SecurityConfig,
 }
 
 impl StatusServer {
-    pub fn new(addr: &str) -> StatusServer {
+    pub fn new(addr: &str, security_cfg: SecurityConfig) -> StatusServer {
         StatusServer {
             inner_server: TiKVStatusServer::new(1, dummy_future_scheduler()),
             addr: addr.to_owned(),
+            security_cfg,
         }
     }
 
     pub fn start(&mut self) {
-        if let Err(e) = self.inner_server.start(self.addr.clone()) {
+        if let Err(e) = self.inner_server.start(self.addr.clone(), &self.security_cfg) {
             warn!("fail to setup status server: {:?}", e)
         }
     }

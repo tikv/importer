@@ -62,7 +62,7 @@ impl ImportKVServer {
         let status_server = tikv
             .status_server_address
             .as_ref()
-            .map(|address| StatusServer::new(address));
+            .map(|address| StatusServer::new(address, tikv.security.clone()));
         ImportKVServer {
             grpc_server,
             status_server,
@@ -83,7 +83,7 @@ impl ImportKVServer {
         }
     }
 
-    pub fn bind_addrs(&self) -> &[(String, u16)] {
+    pub fn bind_addrs(&self) -> impl Iterator<Item = (&String, u16)> + '_ {
         self.grpc_server.bind_addrs()
     }
 }

@@ -16,11 +16,11 @@ use kvproto::import_sstpb::*;
 
 use engine::rocks::util::{new_engine_opt, CFOptions};
 use engine::rocks::{
-    BlockBasedOptions, Cache, ColumnFamilyOptions, DBIterator, DBOptions, Env, EnvOptions,
-    ExternalSstFileInfo, LRUCacheOptions, ReadOptions, SequentialFile, Writable, DB,
+    BlockBasedOptions, Cache, ColumnFamilyOptions, DBIterator, DBOptions, Env,
+    LRUCacheOptions, ReadOptions, Writable, DB,
 };
 use engine_traits::{CF_DEFAULT, CF_WRITE, IndexHandle};
-use engine_rocksdb::{SstFileWriter, WriteBatch as RawBatch};
+use engine_rocksdb::{SstFileWriter, WriteBatch as RawBatch, SequentialFile, EnvOptions, ExternalSstFileInfo};
 use tikv::config::DbConfig;
 use engine_rocks::{RangeProperties, RangePropertiesCollectorFactory, SizeProperties, UserCollectedPropertiesDecoder};
 use tikv::storage::mvcc::{Write, WriteType};
