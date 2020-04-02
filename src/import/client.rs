@@ -8,7 +8,7 @@ use futures::future;
 use futures::{Async, Future, Poll, Stream};
 use grpcio::{CallOption, Channel, ChannelBuilder, EnvBuilder, Environment, WriteFlags};
 
-use engine::rocks::SequentialFile;
+use engine_rocksdb::SequentialFile;
 use kvproto::import_sstpb::*;
 use kvproto::kvrpcpb::*;
 use kvproto::pdpb::OperatorStatus;

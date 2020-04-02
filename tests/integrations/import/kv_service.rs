@@ -27,7 +27,7 @@ fn new_kv_server(enable_client_tls: bool) -> (ImportKVServer, ImportKvClient, Te
 
     let ch = {
         let env = Arc::new(Environment::new(1));
-        let addr = server.bind_addrs().first().unwrap();
+        let addr = server.bind_addrs().next().unwrap();
         let addr = format!("{}:{}", addr.0, addr.1);
         let builder = ChannelBuilder::new(env).keepalive_timeout(Duration::from_secs(60));
         if enable_client_tls {
