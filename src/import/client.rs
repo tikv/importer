@@ -62,13 +62,18 @@ pub struct Client {
     env: Arc<Environment>,
     channels: Mutex<HashMap<u64, Channel>>,
     min_available_ratio: f64,
+    security_mgr: Arc<SecurityManager>,
 }
 
 impl Client {
-    pub fn new(pd_addr: &str, cq_count: usize, min_available_ratio: f64) -> Result<Client> {
+    pub fn new(
+        pd_addr: &str,
+        cq_count: usize,
+        min_available_ratio: f64,
+        security_mgr: Arc<SecurityManager>,
+    ) -> Result<Client> {
         let cfg = PdConfig::new(vec![pd_addr.to_owned()]);
-        let sec_mgr = SecurityManager::default();
-        let rpc_client = RpcClient::new(&cfg, Arc::new(sec_mgr))?;
+        let rpc_client = RpcClient::new(&cfg, security_mgr.clone())?;
         let env = EnvBuilder::new()
             .name_prefix("import-client")
             .cq_count(cq_count)
@@ -78,6 +83,7 @@ impl Client {
             env: Arc::new(env),
             channels: Mutex::new(HashMap::default()),
             min_available_ratio,
+            security_mgr,
         })
     }
 
@@ -94,8 +100,8 @@ impl Client {
             HashMapEntry::Occupied(e) => Ok(e.get().clone()),
             HashMapEntry::Vacant(e) => {
                 let store = self.pd.get_store(store_id)?;
-                let builder = ChannelBuilder::new(Arc::clone(&self.env));
-                let channel = builder.connect(store.get_address());
+                let builder = ChannelBuilder::new(self.env.clone());
+                let channel = self.security_mgr.connect(builder, store.get_address());
                 Ok(e.insert(channel).clone())
             }
         }
@@ -172,6 +178,7 @@ impl Clone for Client {
             env: Arc::clone(&self.env),
             channels: Mutex::new(HashMap::default()),
             min_available_ratio: self.min_available_ratio,
+            security_mgr: self.security_mgr.clone(),
         }
     }
 }
