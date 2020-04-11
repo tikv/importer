@@ -1,6 +1,6 @@
 [package]
 name = "tikv-importer"
-version = "3.1.0-rc"
+version = "3.1.0"
 authors = ["The TiKV Authors"]
 description = "Tool to help ingesting large number of KV pairs into TiKV cluster"
 license = "Apache-2.0"
