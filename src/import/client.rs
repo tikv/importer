@@ -101,7 +101,12 @@ impl Client {
             HashMapEntry::Vacant(e) => {
                 let store = self.pd.get_store(store_id)?;
                 let builder = ChannelBuilder::new(self.env.clone());
-                let channel = self.security_mgr.connect(builder, store.get_address());
+                let tar_addr = if !store.get_peer_address().is_empty() {
+                    store.get_peer_address()
+                } else {
+                    store.get_address()
+                };
+                let channel = self.security_mgr.connect(builder, tar_addr);
                 Ok(e.insert(channel).clone())
             }
         }
