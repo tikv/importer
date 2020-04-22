@@ -1,6 +1,6 @@
 [package]
 name = "tikv-importer"
-version = "3.0.12"
+version = "3.0.13"
 authors = ["The TiKV Authors"]
 description = "Tool to help ingesting large number of KV pairs into TiKV cluster"
 license = "Apache-2.0"
@@ -48,6 +48,9 @@ crossbeam071 = { package = "crossbeam", version = "=0.7.1" }
 tempdir = "0.3"
 rand = "0.6"
 test_util = { version = "0.0.1", git = "https://github.com/tikv/tikv.git", branch = "release-3.0" }
+
+[replace]
+"raft:0.4.3" = { git = "https://github.com/tikv/raft-rs", rev = "9782199fa6318f94bf0974129664d974b03f8f11" }
 
 [features]
 default = ['tikv/default']
