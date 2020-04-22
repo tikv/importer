@@ -103,7 +103,7 @@ dependencies = [
 [[package]]
 name = "batch-system"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#fcc3efd7de266d80df4f9b0471d412acf6033a60"
+source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#cd3ba2976406c40422f2899d458ffd809cf9182b"
 dependencies = [
  "crossbeam 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "derive_more 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -312,7 +312,7 @@ dependencies = [
 [[package]]
 name = "codec"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#fcc3efd7de266d80df4f9b0471d412acf6033a60"
+source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#cd3ba2976406c40422f2899d458ffd809cf9182b"
 dependencies = [
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -338,7 +338,7 @@ dependencies = [
 [[package]]
 name = "cop_codegen"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#fcc3efd7de266d80df4f9b0471d412acf6033a60"
+source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#cd3ba2976406c40422f2899d458ffd809cf9182b"
 dependencies = [
  "darling 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "heck 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -350,14 +350,14 @@ dependencies = [
 [[package]]
 name = "cop_datatype"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#fcc3efd7de266d80df4f9b0471d412acf6033a60"
+source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#cd3ba2976406c40422f2899d458ffd809cf9182b"
 dependencies = [
  "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "enum-primitive-derive 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "tikv_alloc 0.1.0 (git+https://github.com/tikv/tikv.git?branch=release-3.0)",
- "tipb 0.0.1 (git+https://github.com/pingcap/tipb.git)",
+ "tipb 0.0.1 (git+https://github.com/pingcap/tipb.git?branch=release-3.0)",
 ]
 
 [[package]]
@@ -668,7 +668,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "engine"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#fcc3efd7de266d80df4f9b0471d412acf6033a60"
+source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#cd3ba2976406c40422f2899d458ffd809cf9182b"
 dependencies = [
  "crc 1.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1202,7 +1202,7 @@ dependencies = [
 [[package]]
 name = "librocksdb_sys"
 version = "0.1.0"
-source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-3.x#7ec1dbd99d906c0098e60ccce41a2adae13fb411"
+source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-3.x#c7c911962cb07e0941af3e37a054a1d230f46881"
 dependencies = [
  "bzip2-sys 0.1.8+1.0.8 (git+https://github.com/alexcrichton/bzip2-rs.git)",
  "cc 1.0.48 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1219,7 +1219,7 @@ dependencies = [
 [[package]]
 name = "libtitan_sys"
 version = "0.0.1"
-source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-3.x#7ec1dbd99d906c0098e60ccce41a2adae13fb411"
+source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-3.x#c7c911962cb07e0941af3e37a054a1d230f46881"
 dependencies = [
  "bzip2-sys 0.1.8+1.0.8 (git+https://github.com/alexcrichton/bzip2-rs.git)",
  "cc 1.0.48 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1278,7 +1278,7 @@ dependencies = [
 [[package]]
 name = "log_wrappers"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#fcc3efd7de266d80df4f9b0471d412acf6033a60"
+source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#cd3ba2976406c40422f2899d458ffd809cf9182b"
 dependencies = [
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "kvproto 0.0.1 (git+https://github.com/pingcap/kvproto.git?branch=release-3.0)",
@@ -1299,7 +1299,7 @@ dependencies = [
 [[package]]
 name = "match_template"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#fcc3efd7de266d80df4f9b0471d412acf6033a60"
+source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#cd3ba2976406c40422f2899d458ffd809cf9182b"
 dependencies = [
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1777,7 +1777,7 @@ dependencies = [
 [[package]]
 name = "profiler"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#fcc3efd7de266d80df4f9b0471d412acf6033a60"
+source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#cd3ba2976406c40422f2899d458ffd809cf9182b"
 dependencies = [
  "callgrind 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cpuprofiler 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1880,6 +1880,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "protobuf-build"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "protobuf 2.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "protobuf-codegen 2.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "protobuf-codegen"
 version = "2.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1969,14 +1980,20 @@ dependencies = [
 [[package]]
 name = "raft"
 version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/tikv/raft-rs?rev=9782199fa6318f94bf0974129664d974b03f8f11#9782199fa6318f94bf0974129664d974b03f8f11"
 dependencies = [
  "fxhash 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "protobuf 2.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "quick-error 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "raft"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+replace = "raft 0.4.3 (git+https://github.com/tikv/raft-rs?rev=9782199fa6318f94bf0974129664d974b03f8f11)"
 
 [[package]]
 name = "rand"
@@ -2247,7 +2264,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "rocksdb"
 version = "0.3.0"
-source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-3.x#7ec1dbd99d906c0098e60ccce41a2adae13fb411"
+source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-3.x#c7c911962cb07e0941af3e37a054a1d230f46881"
 dependencies = [
  "crc 1.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.66 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2708,7 +2725,7 @@ dependencies = [
 [[package]]
 name = "test_util"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#fcc3efd7de266d80df4f9b0471d412acf6033a60"
+source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#cd3ba2976406c40422f2899d458ffd809cf9182b"
 dependencies = [
  "rand 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand_isaac 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2736,8 +2753,8 @@ dependencies = [
 
 [[package]]
 name = "tikv"
-version = "3.0.11"
-source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#fcc3efd7de266d80df4f9b0471d412acf6033a60"
+version = "3.0.12"
+source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#cd3ba2976406c40422f2899d458ffd809cf9182b"
 dependencies = [
  "backtrace 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2810,7 +2827,7 @@ dependencies = [
  "tikv_alloc 0.1.0 (git+https://github.com/tikv/tikv.git?branch=release-3.0)",
  "tikv_util 0.1.0 (git+https://github.com/tikv/tikv.git?branch=release-3.0)",
  "time 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)",
- "tipb 0.0.1 (git+https://github.com/pingcap/tipb.git)",
+ "tipb 0.0.1 (git+https://github.com/pingcap/tipb.git?branch=release-3.0)",
  "tipb_helper 0.0.1 (git+https://github.com/tikv/tikv.git?branch=release-3.0)",
  "tokio-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-executor 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2827,7 +2844,7 @@ dependencies = [
 
 [[package]]
 name = "tikv-importer"
-version = "3.0.12"
+version = "3.0.13"
 dependencies = [
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "crc 1.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2849,7 +2866,7 @@ dependencies = [
  "slog-global 0.1.0 (git+https://github.com/breeswish/slog-global.git?rev=91904ade)",
  "tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "test_util 0.0.1 (git+https://github.com/tikv/tikv.git?branch=release-3.0)",
- "tikv 3.0.11 (git+https://github.com/tikv/tikv.git?branch=release-3.0)",
+ "tikv 3.0.12 (git+https://github.com/tikv/tikv.git?branch=release-3.0)",
  "tikv_util 0.1.0 (git+https://github.com/tikv/tikv.git?branch=release-3.0)",
  "tipb 0.0.1 (git+https://github.com/pingcap/tipb.git)",
  "toml 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2859,7 +2876,7 @@ dependencies = [
 [[package]]
 name = "tikv_alloc"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#fcc3efd7de266d80df4f9b0471d412acf6033a60"
+source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#cd3ba2976406c40422f2899d458ffd809cf9182b"
 dependencies = [
  "jemalloc-ctl 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jemalloc-sys 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2872,7 +2889,7 @@ dependencies = [
 [[package]]
 name = "tikv_util"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#fcc3efd7de266d80df4f9b0471d412acf6033a60"
+source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#cd3ba2976406c40422f2899d458ffd809cf9182b"
 dependencies = [
  "backtrace 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2935,7 +2952,16 @@ dependencies = [
 [[package]]
 name = "tipb"
 version = "0.0.1"
-source = "git+https://github.com/pingcap/tipb.git#833c2ffd2fe7aad5224dd7c2b05fb24bc109e969"
+source = "git+https://github.com/pingcap/tipb.git#7316d94df1eed974822e2f3e70dc3e0aea1a6b0a"
+dependencies = [
+ "protobuf 2.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "protobuf-build 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "tipb"
+version = "0.0.1"
+source = "git+https://github.com/pingcap/tipb.git?branch=release-3.0#bec3080a542893538eca1bfd707108c31f003f63"
 dependencies = [
  "protobuf 2.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2943,11 +2969,11 @@ dependencies = [
 [[package]]
 name = "tipb_helper"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#fcc3efd7de266d80df4f9b0471d412acf6033a60"
+source = "git+https://github.com/tikv/tikv.git?branch=release-3.0#cd3ba2976406c40422f2899d458ffd809cf9182b"
 dependencies = [
  "codec 0.0.1 (git+https://github.com/tikv/tikv.git?branch=release-3.0)",
  "cop_datatype 0.0.1 (git+https://github.com/tikv/tikv.git?branch=release-3.0)",
- "tipb 0.0.1 (git+https://github.com/pingcap/tipb.git)",
+ "tipb 0.0.1 (git+https://github.com/pingcap/tipb.git?branch=release-3.0)",
 ]
 
 [[package]]
@@ -3409,7 +3435,7 @@ dependencies = [
 [[package]]
 name = "zstd-sys"
 version = "1.4.15+zstd.1.4.4"
-source = "git+https://github.com/gyscos/zstd-rs.git#bc874a57298bdb500cdb5aeac5f23878b6480d0b"
+source = "git+https://github.com/gyscos/zstd-rs.git#3b83579b3a8b4e1d6e841fa5eb6252d4c81af040"
 dependencies = [
  "cc 1.0.48 (registry+https://github.com/rust-lang/crates.io-index)",
  "glob 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3617,6 +3643,7 @@ dependencies = [
 "checksum prost-types 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1de482a366941c8d56d19b650fac09ca08508f2a696119ee7513ad590c8bac6f"
 "checksum protobuf 2.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "fbc4570f22641ed8c65326d54832ce1536e9ddf0ccb7a8c836cbe780d7e23537"
 "checksum protobuf-build 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2a94ea746889322eb33b6977db6ffe82b1decaac1804958b9179245fc45dc4b6"
+"checksum protobuf-build 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)" = "46f3ca050cd02aa2ee07f8e227871ebe8c12cf076ff7c6bf82fdd41dc81af874"
 "checksum protobuf-codegen 2.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "c12a571137dc99703cb46fa21f185834fc5578a65836573fcff127f7b53f41e1"
 "checksum protoc 2.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "bb1a649b870f7fe03c965bf2fa6728361f6abbb6f3b72079515af8cb56d769cf"
 "checksum protoc-grpcio 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a9798b534614b71d780778b1508410826073b5a1ca111a090f1f3fd3ac663ef6"
@@ -3628,6 +3655,7 @@ dependencies = [
 "checksum quote 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "9949cfe66888ffe1d53e6ec9d9f3b70714083854be20fd5e271b232a017401e8"
 "checksum quote 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)" = "6ce23b6b870e8f94f81fb0a363d65d86675884b34a09043c81e5562f11c1f8e1"
 "checksum quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "053a8c8bcc71fcce321828dc897a98ab9760bef03a4fc36693c231e5b3216cfe"
+"checksum raft 0.4.3 (git+https://github.com/tikv/raft-rs?rev=9782199fa6318f94bf0974129664d974b03f8f11)" = "<none>"
 "checksum raft 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "43648985159f2c4c25f934182a63b0dd4c5cc06a5ae96e5d40e12c3a3785abde"
 "checksum rand 0.3.23 (registry+https://github.com/rust-lang/crates.io-index)" = "64ac302d8f83c0c1974bf758f6b041c6c8ada916fbb44a609158ca8b064cc76c"
 "checksum rand 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)" = "552840b97013b1a26992c11eac34bdd778e464601a4c2054b5f0bff7c6761293"
@@ -3721,12 +3749,13 @@ dependencies = [
 "checksum test_util 0.0.1 (git+https://github.com/tikv/tikv.git?branch=release-3.0)" = "<none>"
 "checksum textwrap 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
 "checksum thread_local 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)" = "c6b53e329000edc2b34dbe8545fd20e55a333362d0a321909685a19bd28c3f1b"
-"checksum tikv 3.0.11 (git+https://github.com/tikv/tikv.git?branch=release-3.0)" = "<none>"
+"checksum tikv 3.0.12 (git+https://github.com/tikv/tikv.git?branch=release-3.0)" = "<none>"
 "checksum tikv_alloc 0.1.0 (git+https://github.com/tikv/tikv.git?branch=release-3.0)" = "<none>"
 "checksum tikv_util 0.1.0 (git+https://github.com/tikv/tikv.git?branch=release-3.0)" = "<none>"
 "checksum time 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)" = "db8dcfca086c1143c9270ac42a2bbd8a7ee477b78ac8e45b19abfb0cbede4b6f"
 "checksum tinytemplate 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "4574b75faccaacddb9b284faecdf0b544b80b6b294f3d062d325c5726a209c20"
 "checksum tipb 0.0.1 (git+https://github.com/pingcap/tipb.git)" = "<none>"
+"checksum tipb 0.0.1 (git+https://github.com/pingcap/tipb.git?branch=release-3.0)" = "<none>"
 "checksum tipb_helper 0.0.1 (git+https://github.com/tikv/tikv.git?branch=release-3.0)" = "<none>"
 "checksum tokio 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)" = "5a09c0b5bb588872ab2f09afa13ee6e9dac11e10a0ec9e8e3ba39a5a5d530af6"
 "checksum tokio-buf 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "8fb220f46c53859a4b7ec083e41dec9778ff0b1851c0942b211edb89e0ccdc46"
