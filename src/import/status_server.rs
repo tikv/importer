@@ -1,7 +1,7 @@
 // Copyright 2020 TiKV Project Authors. Licensed under Apache-2.0.
 
 use tikv::server::status_server::StatusServer as TiKVStatusServer;
-use tikv_util::worker::dummy_future_scheduler;
+use tikv::config::ConfigController;
 use tikv_util::security::SecurityConfig;
 
 pub struct StatusServer {
@@ -13,7 +13,7 @@ pub struct StatusServer {
 impl StatusServer {
     pub fn new(addr: &str, security_cfg: SecurityConfig) -> StatusServer {
         StatusServer {
-            inner_server: TiKVStatusServer::new(1, dummy_future_scheduler()),
+            inner_server: TiKVStatusServer::new(1, ConfigController::default()),
             addr: addr.to_owned(),
             security_cfg,
         }

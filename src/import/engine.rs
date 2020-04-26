@@ -30,7 +30,6 @@ use txn_types::{is_short_value, Key, TimeStamp};
 use super::common::*;
 use super::Result;
 use crate::import::stream::SSTFile;
-use engine::rocks::util::security::encrypted_env_from_cipher_file;
 use tikv_util::security::SecurityManager;
 
 /// Engine wraps rocksdb::DB with customized options to support efficient bulk
@@ -255,14 +254,9 @@ pub struct SSTWriter {
 }
 
 impl SSTWriter {
-    pub fn new(db_cfg: &DbConfig, security_mgr: &SecurityManager, path: &str) -> Result<SSTWriter> {
-        let mut env = Arc::new(Env::new_mem());
-        let mut base_env = None;
-        let cipher_file = security_mgr.cipher_file();
-        if !cipher_file.is_empty() {
-            base_env = Some(Arc::clone(&env));
-            env = encrypted_env_from_cipher_file(&cipher_file, Some(env))?;
-        }
+    pub fn new(db_cfg: &DbConfig, _security_mgr: &SecurityManager, path: &str) -> Result<SSTWriter> {
+        let env = Arc::new(Env::new_mem());
+        let base_env = None;
         let uuid = Uuid::new_v4().to_string();
         // Placeholder. SstFileWriter don't actually use block cache.
         let cache = None;
@@ -415,7 +409,6 @@ mod tests {
     use std::io::{self, Write};
     use tempdir::TempDir;
 
-    use engine::rocks::util::security::encrypted_env_from_cipher_file;
     use engine_rocks::RocksEngine;
     use rand::{
         rngs::{OsRng, StdRng},
@@ -501,22 +494,6 @@ mod tests {
     fn test_sst_writer() {
         test_sst_writer_with(1, &[CF_WRITE], &SecurityManager::default());
         test_sst_writer_with(1024, &[CF_DEFAULT, CF_WRITE], &SecurityManager::default());
-
-        let temp_dir = TempDir::new("/tmp/encrypted_env_from_cipher_file").unwrap();
-        let security_mgr = create_security_mgr(&temp_dir);
-        test_sst_writer_with(1, &[CF_WRITE], &security_mgr);
-        test_sst_writer_with(1024, &[CF_DEFAULT, CF_WRITE], &security_mgr);
-    }
-
-    fn create_security_mgr(temp_dir: &TempDir) -> SecurityManager {
-        let path = temp_dir.path().join("cipher_file");
-        let mut cipher_file = File::create(&path).unwrap();
-        cipher_file.write_all(b"ACFFDBCC").unwrap();
-        cipher_file.sync_all().unwrap();
-        let mut security_cfg = SecurityConfig::default();
-        security_cfg.cipher_file = path.to_str().unwrap().to_owned();
-        assert_eq!(file_exists(&security_cfg.cipher_file), true);
-        SecurityManager::new(&security_cfg).unwrap()
     }
 
     fn test_sst_writer_with(value_size: usize, cf_names: &[&str], security_mgr: &SecurityManager) {
@@ -524,11 +501,6 @@ mod tests {
 
         let cfg = DbConfig::default();
         let mut db_opts = cfg.build_opt();
-        let cipher_file = security_mgr.cipher_file();
-        if !cipher_file.is_empty() {
-            let env = encrypted_env_from_cipher_file(&cipher_file, None).unwrap();
-            db_opts.set_env(env);
-        }
         let cache = BlockCacheConfig::default().build_shared_cache();
         let cfs_opts = cfg.build_cf_opts(&cache);
         let db = new_engine_opt(temp_dir.path().to_str().unwrap(), db_opts, cfs_opts).unwrap();
