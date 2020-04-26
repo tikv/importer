@@ -406,7 +406,7 @@ mod tests {
     use kvproto::kvrpcpb::IsolationLevel;
     use kvproto::metapb::{Peer, Region};
     use std::fs::File;
-    use std::io::{self, Write};
+    use std::io;
     use tempdir::TempDir;
 
     use engine_rocks::RocksEngine;
@@ -417,10 +417,7 @@ mod tests {
     use raftstore::store::RegionSnapshot;
     use tikv::storage::config::BlockCacheConfig;
     use tikv::storage::mvcc::MvccReader;
-    use tikv_util::{
-        file::file_exists,
-        security::{SecurityConfig, SecurityManager},
-    };
+    use tikv_util::security::SecurityManager;
 
     fn new_engine() -> (TempDir, Engine) {
         let dir = TempDir::new("test_import_engine").unwrap();
@@ -500,7 +497,7 @@ mod tests {
         let temp_dir = TempDir::new("_test_sst_writer").unwrap();
 
         let cfg = DbConfig::default();
-        let mut db_opts = cfg.build_opt();
+        let db_opts = cfg.build_opt();
         let cache = BlockCacheConfig::default().build_shared_cache();
         let cfs_opts = cfg.build_cf_opts(&cache);
         let db = new_engine_opt(temp_dir.path().to_str().unwrap(), db_opts, cfs_opts).unwrap();
