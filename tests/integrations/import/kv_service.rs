@@ -22,7 +22,7 @@ fn new_kv_server(enable_client_tls: bool) -> (ImportKVServer, ImportKvClient, Te
     let mut cfg = TiKvConfig::default();
     cfg.server.addr = "127.0.0.1:0".to_owned();
     cfg.import.import_dir = temp_dir.path().to_str().unwrap().to_owned();
-    cfg.security = new_security_cfg();
+    cfg.security = new_security_cfg(None);
     let server = ImportKVServer::new(&cfg);
 
     let ch = {

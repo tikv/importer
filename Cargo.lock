@@ -163,7 +163,7 @@ dependencies = [
 [[package]]
 name = "backup"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "crc64fast",
  "engine",
@@ -175,7 +175,7 @@ dependencies = [
  "futures 0.3.4",
  "futures-util",
  "grpcio",
- "hex 0.4.0",
+ "hex 0.4.2",
  "keys",
  "kvproto",
  "lazy_static",
@@ -223,7 +223,7 @@ checksum = "7d5ca2cd0adc3f48f9e9ea5a6bbdf9ccc0bfade884847e484d452414c7ccffb3"
 [[package]]
 name = "batch-system"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "crossbeam",
  "derive_more",
@@ -350,6 +350,9 @@ name = "bytes"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10004c15deb332055f7a4a208190aed362cf9a7c2f6ab70a305fba50e1105f38"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "bzip2-sys"
@@ -393,15 +396,18 @@ dependencies = [
 [[package]]
 name = "cdc"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "engine_rocks",
  "fail",
  "failure",
  "futures 0.1.29",
  "grpcio",
+ "hex 0.4.2",
  "kvproto",
+ "lazy_static",
  "pd_client",
+ "prometheus",
  "raft",
  "raftstore",
  "resolved_ts",
@@ -498,12 +504,13 @@ dependencies = [
 [[package]]
 name = "cmd"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "backup",
  "cdc",
  "chrono",
  "clap",
+ "encryption",
  "engine",
  "engine_rocks",
  "engine_traits",
@@ -511,7 +518,7 @@ dependencies = [
  "futures 0.1.29",
  "futures-cpupool",
  "grpcio",
- "hex 0.4.0",
+ "hex 0.4.2",
  "keys",
  "kvproto",
  "libc",
@@ -548,7 +555,7 @@ dependencies = [
 [[package]]
 name = "codec"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "byteorder",
  "failure",
@@ -560,7 +567,7 @@ dependencies = [
 [[package]]
 name = "configuration"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "configuration_derive",
  "serde",
@@ -569,7 +576,7 @@ dependencies = [
 [[package]]
 name = "configuration_derive"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "proc-macro2 1.0.9",
  "quote 1.0.2",
@@ -844,29 +851,45 @@ dependencies = [
 [[package]]
 name = "encryption"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "byteorder",
+ "bytes 0.4.12",
+ "configuration",
  "crc32fast",
  "engine_traits",
  "failure",
+ "futures 0.3.4",
+ "futures-util",
+ "hex 0.4.2",
  "kvproto",
+ "lazy_static",
  "openssl",
+ "prometheus",
  "protobuf",
  "rand 0.7.3",
+ "rusoto_core",
+ "rusoto_credential",
+ "rusoto_kms",
+ "rusoto_util",
+ "serde",
+ "serde_derive",
  "slog",
  "slog-global",
  "tikv_alloc",
+ "tikv_util",
+ "tokio 0.2.14",
 ]
 
 [[package]]
 name = "engine"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "configuration",
+ "encryption",
  "engine_traits",
- "hex 0.4.0",
+ "hex 0.4.2",
  "kvproto",
  "lazy_static",
  "prometheus",
@@ -888,8 +911,9 @@ dependencies = [
 [[package]]
 name = "engine_rocks"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
+ "encryption",
  "engine",
  "engine_traits",
  "lazy_static",
@@ -905,9 +929,9 @@ dependencies = [
 [[package]]
 name = "engine_traits"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
- "hex 0.4.0",
+ "hex 0.4.2",
  "protobuf",
  "quick-error",
  "tikv_alloc",
@@ -930,7 +954,7 @@ dependencies = [
 [[package]]
 name = "external_storage"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "bytes 0.5.3",
  "futures 0.3.4",
@@ -1347,9 +1371,9 @@ checksum = "805026a5d0141ffc30abb3be3173848ad46a1b1664fe632428479619a3644d77"
 
 [[package]]
 name = "hex"
-version = "0.4.0"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "023b39be39e3a2da62a94feb433e91e8bcd37676fbc8bea371daf52b7a769a3e"
+checksum = "644f9158b2f133fd50f5fb3242878846d9eb792e445c893805ff0e3824006e35"
 
 [[package]]
 name = "hmac"
@@ -1533,7 +1557,7 @@ dependencies = [
 [[package]]
 name = "into_other"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "engine_traits",
  "kvproto",
@@ -1637,12 +1661,12 @@ dependencies = [
 [[package]]
 name = "keys"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "byteorder",
  "derive_more",
  "failure",
- "hex 0.4.0",
+ "hex 0.4.2",
  "kvproto",
  "tikv_alloc",
 ]
@@ -1650,7 +1674,7 @@ dependencies = [
 [[package]]
 name = "kvproto"
 version = "0.0.2"
-source = "git+https://github.com/pingcap/kvproto.git#98f910b71904ff7190e26a483b242ad5d7330c31"
+source = "git+https://github.com/pingcap/kvproto.git?branch=release-4.0#3500763f0214225246d8822fe467733a20ded8c7"
 dependencies = [
  "futures 0.1.29",
  "grpcio",
@@ -1699,7 +1723,7 @@ dependencies = [
 [[package]]
 name = "librocksdb_sys"
 version = "0.1.0"
-source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-4.x#193485b1c1aa20e90641f05292ce8f003694d922"
+source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-4.x#440860ffb5084693c452bd042cf9dac00a534238"
 dependencies = [
  "bindgen",
  "bzip2-sys",
@@ -1718,7 +1742,7 @@ dependencies = [
 [[package]]
 name = "libtitan_sys"
 version = "0.0.1"
-source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-4.x#193485b1c1aa20e90641f05292ce8f003694d922"
+source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-4.x#440860ffb5084693c452bd042cf9dac00a534238"
 dependencies = [
  "bzip2-sys",
  "cc",
@@ -1773,9 +1797,9 @@ dependencies = [
 [[package]]
 name = "log_wrappers"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
- "hex 0.4.0",
+ "hex 0.4.2",
  "slog",
  "slog-term",
  "tikv_alloc",
@@ -1793,7 +1817,7 @@ dependencies = [
 [[package]]
 name = "match_template"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "proc-macro2 1.0.9",
  "quote 1.0.2",
@@ -2242,11 +2266,11 @@ dependencies = [
 [[package]]
 name = "pd_client"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "futures 0.1.29",
  "grpcio",
- "hex 0.4.0",
+ "hex 0.4.2",
  "kvproto",
  "lazy_static",
  "log",
@@ -2422,7 +2446,7 @@ checksum = "e767ab205e4b292ea2c8e9fa454efe7e66e35026432eef34fed7daa763136d09"
 dependencies = [
  "bitflags",
  "byteorder",
- "hex 0.4.0",
+ "hex 0.4.2",
  "lazy_static",
  "libc",
  "libflate",
@@ -2601,7 +2625,7 @@ dependencies = [
 [[package]]
 name = "raftstore"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "batch-system",
  "bitflags",
@@ -2609,6 +2633,7 @@ dependencies = [
  "configuration",
  "crc32fast",
  "crossbeam",
+ "encryption",
  "engine",
  "engine_rocks",
  "engine_traits",
@@ -2617,19 +2642,21 @@ dependencies = [
  "futures 0.1.29",
  "futures-executor",
  "futures-util",
- "hex 0.4.0",
+ "hex 0.4.2",
  "into_other",
  "keys",
  "kvproto",
  "lazy_static",
  "log",
  "log_wrappers",
+ "openssl",
  "pd_client",
  "prometheus",
  "prost",
  "protobuf",
  "quick-error",
  "raft",
+ "rand 0.6.5",
  "serde",
  "serde_derive",
  "slog",
@@ -2953,9 +2980,11 @@ dependencies = [
 [[package]]
 name = "resolved_ts"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
- "hex 0.4.0",
+ "hex 0.4.2",
+ "slog",
+ "slog-global",
  "tikv_util",
  "txn_types",
 ]
@@ -2981,7 +3010,7 @@ checksum = "cabe4fa914dec5870285fa7f71f602645da47c486e68486d2b4ceb4a343e90ac"
 [[package]]
 name = "rocksdb"
 version = "0.3.0"
-source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-4.x#193485b1c1aa20e90641f05292ce8f003694d922"
+source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-4.x#440860ffb5084693c452bd042cf9dac00a534238"
 dependencies = [
  "libc",
  "librocksdb_sys",
@@ -3037,6 +3066,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "rusoto_kms"
+version = "0.43.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "167c735c81ca560f7cd9914f99eabada7b5b66b3b14d7e4401507c68ebca02bb"
+dependencies = [
+ "async-trait",
+ "bytes 0.5.3",
+ "futures 0.3.4",
+ "rusoto_core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "rusoto_s3"
 version = "0.43.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3058,7 +3101,7 @@ dependencies = [
  "base64 0.12.0",
  "bytes 0.5.3",
  "futures 0.3.4",
- "hex 0.4.0",
+ "hex 0.4.2",
  "hmac",
  "http 0.2.1",
  "hyper 0.13.4",
@@ -3093,7 +3136,7 @@ dependencies = [
 [[package]]
 name = "rusoto_util"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "async-trait",
  "rusoto_core",
@@ -3430,16 +3473,18 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 [[package]]
 name = "sst_importer"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "crc32fast",
+ "encryption",
+ "engine_rocks",
  "engine_traits",
  "external_storage",
  "futures 0.1.29",
  "futures-executor",
  "futures-util",
  "grpcio",
- "hex 0.4.0",
+ "hex 0.4.2",
  "keys",
  "kvproto",
  "lazy_static",
@@ -3673,9 +3718,10 @@ dependencies = [
 [[package]]
 name = "test_util"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "fail",
+ "grpcio",
  "rand 0.7.3",
  "rand_isaac 0.2.0",
  "slog",
@@ -3725,7 +3771,7 @@ dependencies = [
 [[package]]
 name = "tidb_query"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "base64 0.12.0",
  "bitfield",
@@ -3739,7 +3785,7 @@ dependencies = [
  "derive_more",
  "failure",
  "flate2",
- "hex 0.4.0",
+ "hex 0.4.2",
  "indexmap",
  "kvproto",
  "lazy_static",
@@ -3777,7 +3823,7 @@ dependencies = [
 [[package]]
 name = "tidb_query_codegen"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "darling",
  "heck",
@@ -3789,7 +3835,7 @@ dependencies = [
 [[package]]
 name = "tidb_query_datatype"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "bitflags",
  "failure",
@@ -3799,8 +3845,8 @@ dependencies = [
 
 [[package]]
 name = "tikv"
-version = "4.0.0-beta.2"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+version = "4.0.0-rc"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -3828,7 +3874,7 @@ dependencies = [
  "futures-locks",
  "futures-util",
  "grpcio",
- "hex 0.4.0",
+ "hex 0.4.2",
  "hyper 0.12.35",
  "into_other",
  "itertools",
@@ -3891,7 +3937,7 @@ dependencies = [
 
 [[package]]
 name = "tikv-importer"
-version = "4.0.0-rc"
+version = "4.0.0-rc.1"
 dependencies = [
  "clap",
  "cmd",
@@ -3931,7 +3977,7 @@ dependencies = [
 [[package]]
 name = "tikv_alloc"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "jemalloc-ctl",
  "jemalloc-sys",
@@ -3944,7 +3990,7 @@ dependencies = [
 [[package]]
 name = "tikv_util"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "async-speed-limit",
  "backtrace",
@@ -3955,13 +4001,14 @@ dependencies = [
  "configuration",
  "crc32fast",
  "crossbeam",
+ "derive_more",
  "fail",
  "fs2",
  "futures 0.1.29",
  "futures 0.3.4",
  "fxhash",
  "grpcio",
- "hex 0.4.0",
+ "hex 0.4.2",
  "lazy_static",
  "libc",
  "log",
@@ -3977,6 +4024,8 @@ dependencies = [
  "slog-async",
  "slog-global",
  "slog-term",
+ "sysinfo",
+ "tempfile",
  "tikv_alloc",
  "time 0.1.42",
  "tokio-core",
@@ -4039,7 +4088,7 @@ dependencies = [
 [[package]]
 name = "tipb"
 version = "0.0.1"
-source = "git+https://github.com/pingcap/tipb.git#364a42ef373afd5dcf524780b883b9ec76f975b7"
+source = "git+https://github.com/pingcap/tipb.git#7316d94df1eed974822e2f3e70dc3e0aea1a6b0a"
 dependencies = [
  "lazy_static",
  "prost",
@@ -4363,13 +4412,13 @@ dependencies = [
 [[package]]
 name = "txn_types"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#cb3ff54682458811159a7711c04076a6ab620aaf"
+source = "git+https://github.com/tikv/tikv.git?branch=release-4.0#8a43dccee00a396ce7ab766ae6afb6505a94c1b2"
 dependencies = [
  "byteorder",
  "codec",
  "derive-new",
  "farmhash",
- "hex 0.4.0",
+ "hex 0.4.2",
  "kvproto",
  "quick-error",
  "slog",
