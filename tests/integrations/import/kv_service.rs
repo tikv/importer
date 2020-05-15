@@ -14,7 +14,7 @@ use kvproto::import_kvpb::*;
 
 use test_util::{new_security_cfg, retry};
 use tikv_importer::import::{ImportKVServer, TiKvConfig};
-use tikv_util::security::SecurityManager;
+use security::SecurityManager;
 
 fn new_kv_server(enable_client_tls: bool) -> (ImportKVServer, ImportKvClient, TempDir) {
     let temp_dir = TempDir::new("test_import_kv_server").unwrap();

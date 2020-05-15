@@ -1,6 +1,6 @@
 [package]
 name = "tikv-importer"
-version = "4.0.0-rc.1"
+version = "4.0.0-rc.2"
 authors = ["The TiKV Authors"]
 description = "Tool to help ingesting large number of KV pairs into TiKV cluster"
 license = "Apache-2.0"
@@ -42,6 +42,7 @@ slog = { version = "2.5", features = ["max_level_trace", "release_max_level_debu
 slog-global = { version = "0.1", git = "https://github.com/breeswish/slog-global.git", rev = "0e23a5baff302a9d7bccd85f8f31e43339c2f2c1" }
 tikv = { git = "https://github.com/tikv/tikv.git", branch = "release-4.0", default-features = false, features = ["prost-codec"] }
 tikv_util = { git = "https://github.com/tikv/tikv.git", branch = "release-4.0", default-features = false }
+security = { git = "https://github.com/tikv/tikv.git", branch = "release-4.0", default-features = false }
 txn_types = { git = "https://github.com/tikv/tikv.git", branch = "release-4.0", default-features = false }
 tipb = { git = "https://github.com/pingcap/tipb.git", default-features = false, features = ["prost-codec"] }
 toml = "0.4"

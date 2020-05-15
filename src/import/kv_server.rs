@@ -7,7 +7,8 @@ use std::sync::Arc;
 use grpcio::{ChannelBuilder, EnvBuilder, Server as GrpcServer, ServerBuilder};
 use kvproto::import_kvpb::create_import_kv;
 
-use tikv_util::{security::SecurityManager, thd_name};
+use security::SecurityManager;
+use tikv_util::thd_name;
 
 use super::{ImportKVService, KVImporter, TiKvConfig};
 use crate::import::status_server::StatusServer;

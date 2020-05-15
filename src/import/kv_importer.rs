@@ -15,7 +15,7 @@ use super::client::*;
 use super::engine::*;
 use super::import::*;
 use super::{Config, Error, Result};
-use tikv_util::security::SecurityManager;
+use security::SecurityManager;
 
 pub struct Inner {
     engines: HashMap<Uuid, Arc<EngineFile>>,

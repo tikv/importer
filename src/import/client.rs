@@ -16,7 +16,7 @@ use kvproto::tikvpb::TikvClient;
 
 use pd_client::{Config as PdConfig, Error as PdError, PdClient, RegionInfo, RpcClient};
 use tikv_util::collections::{HashMap, HashMapEntry};
-use tikv_util::security::SecurityManager;
+use security::SecurityManager;
 use txn_types::Key;
 
 use super::common::*;
