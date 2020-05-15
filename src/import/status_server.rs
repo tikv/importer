@@ -2,7 +2,7 @@
 
 use tikv::server::status_server::StatusServer as TiKVStatusServer;
 use tikv::config::ConfigController;
-use tikv_util::security::SecurityConfig;
+use security::SecurityConfig;
 
 pub struct StatusServer {
     inner_server: TiKVStatusServer,
@@ -13,7 +13,7 @@ pub struct StatusServer {
 impl StatusServer {
     pub fn new(addr: &str, security_cfg: SecurityConfig) -> StatusServer {
         StatusServer {
-            inner_server: TiKVStatusServer::new(1, ConfigController::default()),
+            inner_server: TiKVStatusServer::new(1, None, ConfigController::default()),
             addr: addr.to_owned(),
             security_cfg,
         }

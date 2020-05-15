@@ -11,7 +11,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use kvproto::import_kvpb::mutation::Op as MutationOp;
-use kvproto::import_kvpb::*;
+use kvproto::import_kvpb::{*, WriteBatch};
 use kvproto::import_sstpb::*;
 
 use engine::rocks::util::{new_engine_opt, CFOptions};
@@ -30,7 +30,7 @@ use txn_types::{is_short_value, Key, TimeStamp};
 use super::common::*;
 use super::Result;
 use crate::import::stream::SSTFile;
-use tikv_util::security::SecurityManager;
+use security::SecurityManager;
 
 /// Engine wraps rocksdb::DB with customized options to support efficient bulk
 /// write.
@@ -417,7 +417,7 @@ mod tests {
     use raftstore::store::RegionSnapshot;
     use tikv::storage::config::BlockCacheConfig;
     use tikv::storage::mvcc::MvccReader;
-    use tikv_util::security::SecurityManager;
+    use security::SecurityManager;
 
     fn new_engine() -> (TempDir, Engine) {
         let dir = TempDir::new("test_import_engine").unwrap();

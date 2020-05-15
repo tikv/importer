@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use engine::rocks::DBCompressionType;
 use tikv::config::{log_level_serde, DbConfig, MetricConfig};
 use tikv_util::config::{ReadableDuration, ReadableSize};
-use tikv_util::security::SecurityConfig;
+use security::SecurityConfig;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(default)]
