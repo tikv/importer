@@ -21,22 +21,22 @@ quick_error! {
         Io(err: IoError) {
             from()
             cause(err)
-            description(err.description())
+            display("{}", err)
         }
         Grpc(err: GrpcError) {
             from()
             cause(err)
-            description(err.description())
+            display("{}", err)
         }
         Uuid(err: uuid::BytesError) {
             from()
             cause(err)
-            description(err.description())
+            display("{}", err)
         }
         Codec(err: CodecError) {
             from()
             cause(err)
-            description(err.description())
+            display("{}", err)
         }
         Future(err: Canceled) {
             from()
@@ -48,13 +48,12 @@ quick_error! {
         }
         Engine(err: engine::Error) {
             from()
-            description("Engine error")
             display("Engine {:?}", err)
         }
         ParseIntError(err: ParseIntError) {
             from()
             cause(err)
-            description(err.description())
+            display("{}", err)
         }
         FileExists(path: PathBuf) {
             display("File {:?} exists", path)
@@ -81,7 +80,7 @@ quick_error! {
         PdRPC(err: PdError) {
             from()
             cause(err)
-            description(err.description())
+            display("{}", err)
         }
         TikvRPC(err: errorpb::Error) {
             display("TikvRPC {:?}", err)
@@ -126,3 +125,8 @@ impl From<errorpb::Error> for Error {
 }
 
 pub type Result<T> = result::Result<T, Error>;
+
+#[test]
+fn test_description() {
+    assert_eq!(Error::from(GrpcError::QueueShutdown).to_string(), GrpcError::QueueShutdown.to_string());
+}
