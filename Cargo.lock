@@ -3683,7 +3683,7 @@ dependencies = [
 
 [[package]]
 name = "tikv-importer"
-version = "3.1.1"
+version = "3.1.2"
 dependencies = [
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cmd 0.0.1 (git+https://github.com/tikv/tikv.git?branch=release-3.1)",
