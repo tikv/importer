@@ -5,19 +5,14 @@ log-file = ""
 # log level: trace, debug, info, warn, error, off.
 log-level = "info"
 
+# listening address of the status server
+# status-server-address = "0.0.0.0:8286"
+
 [server]
 # set listening address.
 addr = "0.0.0.0:8287"
 # size of thread pool for grpc server.
 grpc-concurrency = 16
-
-[metric]
-# the Prometheus client push job name.
-job = "tikv-importer"
-# the Prometheus client push interval.
-interval = "15s"
-# the Prometheus pushgateway address.
-address = ""
 
 [rocksdb]
 # the maximum number of concurrent background jobs.
