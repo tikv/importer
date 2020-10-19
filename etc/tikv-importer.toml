@@ -39,6 +39,7 @@ compression-per-level = ["lz4", "no", "no", "no", "no", "no", "lz4"]
 # ca-path = ""
 # cert-path = ""
 # key-path = ""
+# cert-allowed-cn = []
 
 [import]
 # the directory to store importing kv data.
