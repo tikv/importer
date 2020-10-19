@@ -9,6 +9,7 @@ use grpcio::{ClientStreamingSink, RequestStream, RpcContext, UnarySink};
 use kvproto::import_kvpb::*;
 use uuid::Uuid;
 
+use security::check_common_name;
 use tikv_util::time::Instant;
 use txn_types::Key;
 
@@ -68,6 +69,9 @@ impl ImportKv for ImportKVService {
         req: SwitchModeRequest,
         sink: UnarySink<SwitchModeResponse>,
     ) {
+        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
+            return;
+        }
         let label = "switch_mode";
         let timer = Instant::now_coarse();
         let min_available_ratio = self.cfg.min_available_ratio;
@@ -99,6 +103,9 @@ impl ImportKv for ImportKVService {
         req: OpenEngineRequest,
         sink: UnarySink<OpenEngineResponse>,
     ) {
+        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
+            return;
+        }
         let label = "open_engine";
         let timer = Instant::now_coarse();
         let import = Arc::clone(&self.importer);
@@ -120,6 +127,9 @@ impl ImportKv for ImportKVService {
         stream: RequestStream<WriteEngineRequest>,
         sink: ClientStreamingSink<WriteEngineResponse>,
     ) {
+        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
+            return;
+        }
         let label = "write_engine";
         let timer = Instant::now_coarse();
         let import = Arc::clone(&self.importer);
@@ -177,6 +187,9 @@ impl ImportKv for ImportKVService {
         req: WriteEngineV3Request,
         sink: UnarySink<WriteEngineResponse>,
     ) {
+        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
+            return;
+        }
         let label = "write_engine";
         let timer = Instant::now_coarse();
         let import = Arc::clone(&self.importer);
@@ -217,6 +230,9 @@ impl ImportKv for ImportKVService {
         req: CloseEngineRequest,
         sink: UnarySink<CloseEngineResponse>,
     ) {
+        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
+            return;
+        }
         let label = "close_engine";
         let timer = Instant::now_coarse();
         let import = Arc::clone(&self.importer);
@@ -248,6 +264,9 @@ impl ImportKv for ImportKVService {
         req: ImportEngineRequest,
         sink: UnarySink<ImportEngineResponse>,
     ) {
+        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
+            return;
+        }
         let label = "import_engine";
         let timer = Instant::now_coarse();
         let import = Arc::clone(&self.importer);
@@ -269,6 +288,9 @@ impl ImportKv for ImportKVService {
         req: CleanupEngineRequest,
         sink: UnarySink<CleanupEngineResponse>,
     ) {
+        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
+            return;
+        }
         let label = "cleanup_engine";
         let timer = Instant::now_coarse();
         let import = Arc::clone(&self.importer);
@@ -292,6 +314,9 @@ impl ImportKv for ImportKVService {
         req: CompactClusterRequest,
         sink: UnarySink<CompactClusterResponse>,
     ) {
+        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
+            return;
+        }
         let label = "compact_cluster";
         let timer = Instant::now_coarse();
         let min_available_ratio = self.cfg.min_available_ratio;
@@ -337,6 +362,9 @@ impl ImportKv for ImportKVService {
         _req: GetVersionRequest,
         sink: UnarySink<GetVersionResponse>,
     ) {
+        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
+            return;
+        }
         let label = "get_version";
         let timer = Instant::now_coarse();
 
@@ -360,6 +388,9 @@ impl ImportKv for ImportKVService {
         _req: GetMetricsRequest,
         sink: UnarySink<GetMetricsResponse>,
     ) {
+        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
+            return;
+        }
         let label = "get_metrics";
         let timer = Instant::now_coarse();
 
