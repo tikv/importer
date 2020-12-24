@@ -8,8 +8,8 @@ use std::sync::{Arc, Mutex};
 use kvproto::import_kvpb::*;
 use uuid::Uuid;
 
+use collections::HashMap;
 use tikv::config::DbConfig;
-use tikv_util::collections::HashMap;
 
 use super::client::*;
 use super::engine::*;
@@ -118,7 +118,7 @@ impl KVImporter {
 
     /// Import the engine to TiKV stores.
     /// Engine can not be imported before it is closed.
-    pub fn import_engine(&self, uuid: Uuid, pd_addr: &str) -> Result<()> {
+    pub async fn import_engine(&self, uuid: Uuid, pd_addr: &str) -> Result<()> {
         let client = Client::new(
             pd_addr,
             self.cfg.num_import_jobs,
@@ -137,7 +137,7 @@ impl KVImporter {
             job
         };
 
-        let res = job.run();
+        let res = job.run().await;
         self.inner.lock().unwrap().import_jobs.remove(&uuid);
 
         match res {

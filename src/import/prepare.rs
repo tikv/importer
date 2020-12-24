@@ -2,13 +2,13 @@
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::thread;
 use std::time::{Duration, Instant};
 
-use kvproto::metapb::*;
+use futures_timer::Delay;
 
-use pd_client::RegionInfo;
 use engine_rocks::SizeProperties;
+use kvproto::metapb::*;
+use pd_client::RegionInfo;
 
 use super::client::*;
 use super::common::*;
@@ -41,7 +41,7 @@ macro_rules! exec_with_retry {
             } else {
                 // Exponential back-off with max wait duration
                 interval = (2 * interval).min($max_duration);
-                thread::sleep(Duration::from_millis(interval));
+                Delay::new(Duration::from_millis(interval)).await;
             }
         }
     };
@@ -71,7 +71,7 @@ impl<Client: ImportClient> PrepareJob<Client> {
         }
     }
 
-    pub fn run(&self) -> Result<Vec<RangeInfo>> {
+    pub async fn run(&self) -> Result<Vec<RangeInfo>> {
         let start = Instant::now();
         info!("split and scatter"; "tag" => %self.tag);
 
@@ -87,7 +87,7 @@ impl<Client: ImportClient> PrepareJob<Client> {
         };
 
         IMPORT_EACH_PHASE.with_label_values(&["prepare"]).set(1.0);
-        let prepares = self.prepare(&props);
+        let prepares = self.prepare(&props).await;
         IMPORT_EACH_PHASE.with_label_values(&["prepare"]).set(0.0);
 
         let num_prepares = prepares?;
@@ -102,7 +102,7 @@ impl<Client: ImportClient> PrepareJob<Client> {
         ))
     }
 
-    fn prepare(&self, props: &SizeProperties) -> Result<usize> {
+    async fn prepare(&self, props: &SizeProperties) -> Result<usize> {
         let split_size = self.cfg.region_split_size.0 as usize;
         let mut ctx = RangeContext::new(Arc::clone(&self.client), split_size);
 
@@ -116,7 +116,10 @@ impl<Client: ImportClient> PrepareJob<Client> {
             }
 
             let range = RangeInfo::new(&start, k, ctx.raw_size());
-            if let Ok(true) = self.run_prepare_range_job(range, &mut wait_scatter_regions) {
+            if let Ok(true) = self
+                .run_prepare_range_job(range, &mut wait_scatter_regions)
+                .await
+            {
                 num_prepares += 1;
             }
 
@@ -140,7 +143,7 @@ impl<Client: ImportClient> PrepareJob<Client> {
         Ok(num_prepares)
     }
 
-    fn run_prepare_range_job(
+    async fn run_prepare_range_job(
         &self,
         range: RangeInfo,
         wait_scatter_regions: &mut Vec<u64>,
@@ -148,7 +151,7 @@ impl<Client: ImportClient> PrepareJob<Client> {
         let id = self.counter.fetch_add(1, Ordering::SeqCst);
         let tag = format!("[PrepareRangeJob {}:{}]", self.engine.uuid(), id);
         let job = PrepareRangeJob::new(tag, range, Arc::clone(&self.client));
-        job.run(wait_scatter_regions)
+        job.run(wait_scatter_regions).await
     }
 }
 
@@ -165,13 +168,13 @@ impl<Client: ImportClient> PrepareRangeJob<Client> {
         PrepareRangeJob { tag, range, client }
     }
 
-    fn run(&self, wait_scatter_regions: &mut Vec<u64>) -> Result<bool> {
+    async fn run(&self, wait_scatter_regions: &mut Vec<u64>) -> Result<bool> {
         let start = Instant::now();
         info!("prepare range"; "tag" => %self.tag, "range" => ?self.range);
 
         for i in 0..MAX_RETRY_TIMES {
             if i != 0 {
-                thread::sleep(Duration::from_secs(RETRY_INTERVAL_SECS));
+                Delay::new(Duration::from_secs(RETRY_INTERVAL_SECS)).await;
             }
 
             let mut region = match self.client.get_region(self.range.get_start()) {
@@ -183,7 +186,7 @@ impl<Client: ImportClient> PrepareRangeJob<Client> {
             };
 
             for _ in 0..MAX_RETRY_TIMES {
-                match self.prepare(region, wait_scatter_regions) {
+                match self.prepare(region, wait_scatter_regions).await {
                     Ok(v) => {
                         info!("prepare range completed"; "tag" => %self.tag, "range" => ?self.range, "takes" => ?start.elapsed());
                         return Ok(v);
@@ -201,7 +204,11 @@ impl<Client: ImportClient> PrepareRangeJob<Client> {
         Err(Error::PrepareRangeJobFailed(self.tag.clone()))
     }
 
-    fn prepare(&self, mut region: RegionInfo, wait_scatter_regions: &mut Vec<u64>) -> Result<bool> {
+    async fn prepare(
+        &self,
+        mut region: RegionInfo,
+        wait_scatter_regions: &mut Vec<u64>,
+    ) -> Result<bool> {
         if !self.need_split(&region) {
             return Ok(false);
         }
@@ -214,7 +221,7 @@ impl<Client: ImportClient> PrepareRangeJob<Client> {
                 // region.
                 exec_with_retry!(
                     "split",
-                    self.client.has_region_id(new_region.region.id)?,
+                    self.client.has_region_id(new_region.region.id).await?,
                     SPLIT_WAIT_MAX_RETRY_TIMES,
                     SPLIT_WAIT_INTERVAL_MILLIS,
                     SPLIT_MAX_WAIT_INTERVAL_MILLIS
@@ -320,7 +327,8 @@ mod tests {
     use super::*;
     use crate::import::test_helpers::*;
 
-    use engine::rocks::Writable;
+    use engine_rocks::raw::Writable;
+    use futures::executor::block_on;
     use tempdir::TempDir;
     use uuid::Uuid;
 
@@ -384,13 +392,13 @@ mod tests {
                 (vec![12], vec![15], true),
                 (vec![15], vec![], false),
             ];
-            run_and_check_prepare_job(
+            block_on(run_and_check_prepare_job(
                 cfg.clone(),
                 client,
                 Arc::clone(&engine),
                 &ranges,
                 &region_ranges,
-            );
+            ));
         }
 
         // Test with some segmented region ranges.
@@ -419,17 +427,17 @@ mod tests {
                 (vec![13], vec![15], false),
                 (vec![15], vec![], false),
             ];
-            run_and_check_prepare_job(
+            block_on(run_and_check_prepare_job(
                 cfg.clone(),
                 client,
                 Arc::clone(&engine),
                 &ranges,
                 &region_ranges,
-            );
+            ));
         }
     }
 
-    fn run_and_check_prepare_job(
+    async fn run_and_check_prepare_job(
         cfg: Config,
         client: MockClient,
         engine: Arc<Engine>,
@@ -438,7 +446,7 @@ mod tests {
     ) {
         let job = PrepareJob::new(cfg, client.clone(), Arc::clone(&engine));
 
-        let ranges = job.run().unwrap();
+        let ranges = job.run().await.unwrap();
         assert_eq!(ranges.len(), expected_ranges.len());
         for (range, &(ref start, ref end)) in ranges.iter().zip(expected_ranges.iter()) {
             let start_key = new_encoded_key(start);

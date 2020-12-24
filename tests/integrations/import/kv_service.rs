@@ -4,7 +4,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use clap::crate_version;
-use futures::{stream, Future, Stream};
+use futures::executor::block_on;
+use futures::stream::{self, StreamExt};
 use tempdir::TempDir;
 use uuid::Uuid;
 
@@ -12,9 +13,9 @@ use grpcio::{ChannelBuilder, Environment, Result, RpcStatusCode, WriteFlags};
 use kvproto::import_kvpb::mutation::Op as MutationOp;
 use kvproto::import_kvpb::*;
 
+use security::SecurityManager;
 use test_util::{new_security_cfg, retry};
 use tikv_importer::import::{ImportKVServer, TiKvConfig};
-use security::SecurityManager;
 
 fn new_kv_server(enable_client_tls: bool) -> (ImportKVServer, ImportKvClient, TempDir) {
     let temp_dir = TempDir::new("test_import_kv_server").unwrap();
@@ -156,9 +157,12 @@ fn send_write(
     r3.set_batch(batch.clone());
     let reqs: Vec<_> = vec![r1, r2, r3]
         .into_iter()
-        .map(|r| (r, WriteFlags::default()))
+        .map(|r| Ok((r, WriteFlags::default())))
         .collect();
     let (tx, rx) = client.write_engine().unwrap();
-    let stream = stream::iter_ok(reqs);
-    stream.forward(tx).and_then(|_| rx).wait()
+    let stream = stream::iter(reqs);
+    block_on(async move {
+        stream.forward(tx).await?;
+        Ok(rx.await?)
+    })
 }
