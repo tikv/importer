@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use engine::rocks::{DBIterator, SeekKey, DB};
+use engine_rocks::raw::{DBIterator, SeekKey, DB};
 use kvproto::import_sstpb::*;
 use kvproto::metapb::*;
 
@@ -200,7 +200,7 @@ mod tests {
     use std::path::Path;
     use std::sync::Arc;
 
-    use engine::rocks::{DBIterator, DBOptions, ReadOptions, Writable, DB};
+    use engine_rocks::raw::{DBIterator, DBOptions, ReadOptions, Writable, DB};
     use tempdir::TempDir;
 
     use tikv::config::DbConfig;

@@ -11,18 +11,23 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use kvproto::import_kvpb::mutation::Op as MutationOp;
-use kvproto::import_kvpb::{*, WriteBatch};
+use kvproto::import_kvpb::{WriteBatch, *};
 use kvproto::import_sstpb::*;
 
-use engine::rocks::util::{new_engine_opt, CFOptions};
-use engine::rocks::{
-    BlockBasedOptions, Cache, ColumnFamilyOptions, DBIterator, DBOptions, Env,
-    LRUCacheOptions, ReadOptions, Writable, DB,
+use engine_rocks::raw::{
+    BlockBasedOptions, Cache, ColumnFamilyOptions, DBIterator, DBOptions, Env, LRUCacheOptions,
+    ReadOptions, Writable, DB,
 };
-use engine_traits::{CF_DEFAULT, CF_WRITE, IndexHandle};
-use engine_rocksdb::{SstFileWriter, WriteBatch as RawBatch, SequentialFile, EnvOptions, ExternalSstFileInfo};
+use engine_rocks::raw_util::{new_engine_opt, CFOptions};
+use engine_rocks::{
+    RangeProperties, RangePropertiesCollectorFactory, SizeProperties,
+    UserCollectedPropertiesDecoder,
+};
+use engine_rocksdb::{
+    EnvOptions, ExternalSstFileInfo, SequentialFile, SstFileWriter, WriteBatch as RawBatch,
+};
+use engine_traits::{IndexHandle, CF_DEFAULT, CF_WRITE};
 use tikv::config::DbConfig;
-use engine_rocks::{RangeProperties, RangePropertiesCollectorFactory, SizeProperties, UserCollectedPropertiesDecoder};
 use tikv::storage::mvcc::{Write, WriteType};
 use tikv_util::config::MB;
 use txn_types::{is_short_value, Key, TimeStamp};
@@ -115,7 +120,9 @@ impl Engine {
         let mut res = SizeProperties::default();
         let collection = self.get_properties_of_all_tables()?;
         for (_, v) in &*collection {
-            let props = RangeProperties::decode(&UserCollectedPropertiesDecoder(v.user_collected_properties()))?;
+            let props = RangeProperties::decode(&UserCollectedPropertiesDecoder(
+                v.user_collected_properties(),
+            ))?;
             let mut prev_size = 0;
             for (key, range) in props.offsets {
                 res.index_handles.add(
@@ -254,7 +261,11 @@ pub struct SSTWriter {
 }
 
 impl SSTWriter {
-    pub fn new(db_cfg: &DbConfig, _security_mgr: &SecurityManager, path: &str) -> Result<SSTWriter> {
+    pub fn new(
+        db_cfg: &DbConfig,
+        _security_mgr: &SecurityManager,
+        path: &str,
+    ) -> Result<SSTWriter> {
         let env = Arc::new(Env::new_mem());
         let base_env = None;
         let uuid = Uuid::new_v4().to_string();
@@ -264,14 +275,14 @@ impl SSTWriter {
         // Creates a writer for default CF
         // Here is where we set table_properties_collector_factory, so that we can collect
         // some properties about SST
-        let mut default_opts = db_cfg.defaultcf.build_opt(&cache);
+        let mut default_opts = db_cfg.defaultcf.build_opt(&cache, None);
         default_opts.set_env(Arc::clone(&env));
         default_opts.compression_per_level(&db_cfg.defaultcf.compression_per_level);
         let mut default = SstFileWriter::new(EnvOptions::new(), default_opts);
         default.open(&format!("{}{}.{}:default", path, MAIN_SEPARATOR, uuid))?;
 
         // Creates a writer for write CF
-        let mut write_opts = db_cfg.writecf.build_opt(&cache);
+        let mut write_opts = db_cfg.writecf.build_opt(&cache, None);
         write_opts.set_env(Arc::clone(&env));
         write_opts.compression_per_level(&db_cfg.writecf.compression_per_level);
         let mut write = SstFileWriter::new(EnvOptions::new(), write_opts);
@@ -401,23 +412,24 @@ fn tune_dboptions_for_bulk_load(opts: &DbConfig) -> (DBOptions, CFOptions<'_>) {
 mod tests {
     use super::*;
 
-    use engine::rocks::util::new_engine_opt;
-    use engine::rocks::IngestExternalFileOptions;
+    use engine_rocks::raw::IngestExternalFileOptions;
+    use engine_rocks::raw_util::new_engine_opt;
+    use engine_traits::MiscExt;
     use kvproto::kvrpcpb::IsolationLevel;
     use kvproto::metapb::{Peer, Region};
     use std::fs::File;
     use std::io;
     use tempdir::TempDir;
 
-    use engine_rocks::RocksEngine;
+    use engine_rocks::{RocksEngine, RocksSnapshot};
+    use raftstore::store::RegionSnapshot;
     use rand::{
         rngs::{OsRng, StdRng},
         RngCore, SeedableRng,
     };
-    use raftstore::store::RegionSnapshot;
+    use security::SecurityManager;
     use tikv::storage::config::BlockCacheConfig;
     use tikv::storage::mvcc::MvccReader;
-    use security::SecurityManager;
 
     fn new_engine() -> (TempDir, Engine) {
         let dir = TempDir::new("test_import_engine").unwrap();
@@ -499,9 +511,9 @@ mod tests {
         let cfg = DbConfig::default();
         let db_opts = cfg.build_opt();
         let cache = BlockCacheConfig::default().build_shared_cache();
-        let cfs_opts = cfg.build_cf_opts(&cache);
+        let cfs_opts = cfg.build_cf_opts(&cache, None);
         let db = new_engine_opt(temp_dir.path().to_str().unwrap(), db_opts, cfs_opts).unwrap();
-        let db = Arc::new(db);
+        let db = RocksEngine::from_db(Arc::new(db));
 
         let n = 10;
         let commit_ts = 10;
@@ -534,8 +546,9 @@ mod tests {
             }
             let mut opts = IngestExternalFileOptions::new();
             opts.move_files(true);
-            let handle = db.cf_handle(cf_name).unwrap();
-            db.ingest_external_file_cf(handle, &opts, &[path.to_str().unwrap()])
+            let handle = db.as_inner().cf_handle(cf_name).unwrap();
+            db.as_inner()
+                .ingest_external_file_cf(handle, &opts, &[path.to_str().unwrap()])
                 .unwrap();
         }
 
@@ -543,13 +556,16 @@ mod tests {
         let mut region = Region::default();
         region.set_id(1);
         region.mut_peers().push(Peer::default());
-        let snap = RegionSnapshot::<RocksEngine>::from_raw(Arc::clone(&db), region);
+        let snap = RegionSnapshot::<RocksSnapshot>::from_raw(db, region);
 
         let mut reader = MvccReader::new(snap, None, false, IsolationLevel::Si);
         // Make sure that all kvs are right.
         for i in 0..n {
             let k = Key::from_raw(&[i]);
-            let v = reader.get(&k, TimeStamp::new(commit_ts), false).unwrap().unwrap();
+            let v = reader
+                .get(&k, TimeStamp::new(commit_ts), false)
+                .unwrap()
+                .unwrap();
             assert_eq!(&v, &value);
         }
         // Make sure that no extra keys are added.

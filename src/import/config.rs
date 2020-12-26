@@ -6,10 +6,10 @@ use std::result::Result;
 
 use serde::{Deserialize, Serialize};
 
-use engine::rocks::DBCompressionType;
+use engine_rocks::raw::DBCompressionType;
+use security::SecurityConfig;
 use tikv::config::{log_level_serde, DbConfig, MetricConfig};
 use tikv_util::config::{ReadableDuration, ReadableSize};
-use security::SecurityConfig;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(default)]

@@ -1,6 +1,5 @@
 // Copyright 2018 TiKV Project Authors. Licensed under Apache-2.0.
 
-#![feature(slice_patterns)]
 #![feature(proc_macro_hygiene)]
 
 #[macro_use]
@@ -11,6 +10,8 @@ use std::path::Path;
 
 use cmd::setup::*;
 use cmd::signal_handler;
+use engine_rocks::RocksEngine;
+use engine_traits::Engines;
 
 use clap::{crate_authors, crate_version, App, Arg, ArgMatches};
 
@@ -108,7 +109,7 @@ fn main() {
 
     tikv_util::set_panic_hook(false, &config.storage.data_dir);
 
-    initial_metric(&config.metric, None);
+    initial_metric(&config.metric);
     log_importer_info();
     check_environment_variables();
 
@@ -171,7 +172,7 @@ fn run_import_server(config: &TiKvConfig) {
     let mut server = ImportKVServer::new(config);
     server.start();
     info!("import server started");
-    signal_handler::wait_for_signal(None);
+    signal_handler::wait_for_signal(None::<Engines<_, RocksEngine>>);
     server.shutdown();
     info!("import server shutdown");
 }

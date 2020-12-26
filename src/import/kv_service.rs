@@ -2,14 +2,14 @@
 
 use std::sync::Arc;
 
-use futures::sync::mpsc;
-use futures::{Future, Stream};
-use futures_cpupool::{Builder, CpuPool};
+use futures::executor::{ThreadPool, ThreadPoolBuilder};
+use futures::future::FutureExt;
+use futures::stream::StreamExt;
+use futures::task::SpawnExt;
 use grpcio::{ClientStreamingSink, RequestStream, RpcContext, UnarySink};
 use kvproto::import_kvpb::*;
 use uuid::Uuid;
 
-use security::check_common_name;
 use tikv_util::time::Instant;
 use txn_types::Key;
 
@@ -22,22 +22,38 @@ use crate::send_rpc_response;
 #[derive(Clone)]
 pub struct ImportKVService {
     cfg: Config,
-    threads: CpuPool,
+    threads: ThreadPool,
     importer: Arc<KVImporter>,
 }
 
 impl ImportKVService {
     pub fn new(cfg: Config, importer: Arc<KVImporter>) -> ImportKVService {
-        let threads = Builder::new()
+        let threads = ThreadPoolBuilder::new()
             .name_prefix("kv-importer")
             .pool_size(cfg.num_threads)
-            .create();
+            .create()
+            .unwrap();
         ImportKVService {
             cfg,
             threads,
             importer,
         }
     }
+}
+
+macro_rules! try_engine {
+    (<$resp_ty:ty> $e:expr) => {
+        match $e {
+            Err(Error::EngineNotFound(v)) => {
+                let mut resp = <$resp_ty>::default();
+                resp.mut_error()
+                    .mut_engine_not_found()
+                    .set_uuid(v.as_bytes().to_vec());
+                return Ok(resp);
+            }
+            e => e?,
+        }
+    };
 }
 
 /// ImportKV provides a service to import key-value pairs to TiKV.
@@ -69,9 +85,6 @@ impl ImportKv for ImportKVService {
         req: SwitchModeRequest,
         sink: UnarySink<SwitchModeResponse>,
     ) {
-        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
-            return;
-        }
         let label = "switch_mode";
         let timer = Instant::now_coarse();
         let min_available_ratio = self.cfg.min_available_ratio;
@@ -79,21 +92,21 @@ impl ImportKv for ImportKVService {
 
         ctx.spawn(
             self.threads
-                .spawn_fn(move || {
+                .spawn_with_handle(async move {
                     let client = Client::new(req.get_pd_addr(), 1, min_available_ratio, security_mgr)?;
-                    match client.switch_cluster(req.get_request()) {
+                    match client.switch_cluster(req.get_request()).await {
                         Ok(_) => {
                             info!("switch cluster"; "req" => ?req.get_request());
-                            Ok(())
+                            Ok(SwitchModeResponse::default())
                         }
                         Err(e) => {
                             error!("switch cluster failed"; "req" => ?req.get_request(), "err" => %e);
                             Err(e)
                         }
                     }
-                })
-                .map(|_| SwitchModeResponse::default())
-                .then(move |res| send_rpc_response!(res, sink, label, timer)),
+                }
+                .then(move |res| send_rpc_response!(res, sink, label, timer))
+            ).unwrap(),
         )
     }
 
@@ -103,81 +116,65 @@ impl ImportKv for ImportKVService {
         req: OpenEngineRequest,
         sink: UnarySink<OpenEngineResponse>,
     ) {
-        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
-            return;
-        }
         let label = "open_engine";
         let timer = Instant::now_coarse();
         let import = Arc::clone(&self.importer);
 
         ctx.spawn(
             self.threads
-                .spawn_fn(move || {
-                    let uuid = Uuid::from_slice(req.get_uuid())?;
-                    import.open_engine(uuid)
-                })
-                .map(|_| OpenEngineResponse::default())
-                .then(move |res| send_rpc_response!(res, sink, label, timer)),
+                .spawn_with_handle(
+                    async move {
+                        let uuid = Uuid::from_slice(req.get_uuid())?;
+                        import
+                            .open_engine(uuid)
+                            .map(|_| OpenEngineResponse::default())
+                    }
+                    .then(move |res| send_rpc_response!(res, sink, label, timer)),
+                )
+                .unwrap(),
         )
     }
 
     fn write_engine(
         &mut self,
         ctx: RpcContext<'_>,
-        stream: RequestStream<WriteEngineRequest>,
+        mut stream: RequestStream<WriteEngineRequest>,
         sink: ClientStreamingSink<WriteEngineResponse>,
     ) {
-        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
-            return;
-        }
         let label = "write_engine";
         let timer = Instant::now_coarse();
         let import = Arc::clone(&self.importer);
-        let bounded_stream = mpsc::spawn(stream, &self.threads, self.cfg.stream_channel_window);
 
         ctx.spawn(
-            self.threads.spawn(
-                bounded_stream
-                    .into_future()
-                    .map_err(|(e, _)| Error::from(e))
-                    .and_then(move |(chunk, stream)| {
-                        // The first message of the stream specifies the uuid of
-                        // the corresponding engine.
-                        // The engine should be opened before any write.
-                        let head = match chunk {
-                            Some(ref chunk) if chunk.has_head() => chunk.get_head(),
+            self.threads
+                .spawn_with_handle(
+                    async move {
+                        let uuid = match stream.next().await {
+                            Some(Ok(ref chunk)) if chunk.has_head() => {
+                                Uuid::from_slice(chunk.get_head().get_uuid())?
+                            }
+                            Some(Err(e)) => return Err(e.into()),
                             _ => return Err(Error::InvalidChunk),
                         };
-                        let uuid = Uuid::from_slice(head.get_uuid())?;
-                        let engine = import.bind_engine(uuid)?;
-                        Ok((engine, stream))
-                    })
-                    .and_then(move |(engine, stream)| {
-                        stream.map_err(Error::from).for_each(move |mut chunk| {
-                            let start = Instant::now_coarse();
+                        let engine = try_engine!(<WriteEngineResponse> import.bind_engine(uuid));
+
+                        while let Some(chunk) = stream.next().await {
+                            let mut chunk = chunk?;
                             if !chunk.has_batch() {
                                 return Err(Error::InvalidChunk);
                             }
+                            let start = Instant::now_coarse();
                             let batch = chunk.take_batch();
                             let batch_size = engine.write(batch)?;
                             IMPORT_WRITE_CHUNK_BYTES.observe(batch_size as f64);
                             IMPORT_WRITE_CHUNK_DURATION.observe(start.elapsed_secs());
-                            Ok(())
-                        })
-                    })
-                    .then(move |res| match res {
-                        Ok(_) => Ok(WriteEngineResponse::default()),
-                        Err(Error::EngineNotFound(v)) => {
-                            let mut resp = WriteEngineResponse::default();
-                            resp.mut_error()
-                                .mut_engine_not_found()
-                                .set_uuid(v.as_bytes().to_vec());
-                            Ok(resp)
                         }
-                        Err(e) => Err(e),
-                    })
+
+                        Ok(WriteEngineResponse::default())
+                    }
                     .then(move |res| send_rpc_response!(res, sink, label, timer)),
-            ),
+                )
+                .unwrap(),
         )
     }
 
@@ -187,40 +184,27 @@ impl ImportKv for ImportKVService {
         req: WriteEngineV3Request,
         sink: UnarySink<WriteEngineResponse>,
     ) {
-        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
-            return;
-        }
         let label = "write_engine";
         let timer = Instant::now_coarse();
         let import = Arc::clone(&self.importer);
 
         ctx.spawn(
             self.threads
-                .spawn_fn(move || {
-                    let uuid = Uuid::from_slice(req.get_uuid())?;
-                    let engine = import.bind_engine(uuid)?;
-                    Ok((engine, req))
-                })
-                .and_then(move |(engine, req)| {
-                    let ts = req.get_commit_ts();
-                    let start = Instant::now_coarse();
-                    let write_size = engine.write_v3(ts, req.get_pairs())?;
-                    IMPORT_WRITE_CHUNK_BYTES.observe(write_size as f64);
-                    IMPORT_WRITE_CHUNK_DURATION.observe(start.elapsed_secs());
-                    Ok(())
-                })
-                .then(move |res| match res {
-                    Ok(_) => Ok(WriteEngineResponse::default()),
-                    Err(Error::EngineNotFound(v)) => {
-                        let mut resp = WriteEngineResponse::default();
-                        resp.mut_error()
-                            .mut_engine_not_found()
-                            .set_uuid(v.as_bytes().to_vec());
-                        Ok(resp)
+                .spawn_with_handle(
+                    async move {
+                        let uuid = Uuid::from_slice(req.get_uuid())?;
+                        let engine = try_engine!(<WriteEngineResponse> import.bind_engine(uuid));
+
+                        let ts = req.get_commit_ts();
+                        let start = Instant::now_coarse();
+                        let write_size = engine.write_v3(ts, req.get_pairs())?;
+                        IMPORT_WRITE_CHUNK_BYTES.observe(write_size as f64);
+                        IMPORT_WRITE_CHUNK_DURATION.observe(start.elapsed_secs());
+                        Ok(WriteEngineResponse::default())
                     }
-                    Err(e) => Err(e),
-                })
-                .then(move |res| send_rpc_response!(res, sink, label, timer)),
+                    .then(move |res| send_rpc_response!(res, sink, label, timer)),
+                )
+                .unwrap(),
         )
     }
 
@@ -230,31 +214,21 @@ impl ImportKv for ImportKVService {
         req: CloseEngineRequest,
         sink: UnarySink<CloseEngineResponse>,
     ) {
-        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
-            return;
-        }
         let label = "close_engine";
         let timer = Instant::now_coarse();
         let import = Arc::clone(&self.importer);
 
         ctx.spawn(
             self.threads
-                .spawn_fn(move || {
-                    let uuid = Uuid::from_slice(req.get_uuid())?;
-                    import.close_engine(uuid)
-                })
-                .then(move |res| match res {
-                    Ok(_) => Ok(CloseEngineResponse::default()),
-                    Err(Error::EngineNotFound(v)) => {
-                        let mut resp = CloseEngineResponse::default();
-                        resp.mut_error()
-                            .mut_engine_not_found()
-                            .set_uuid(v.as_bytes().to_vec());
-                        Ok(resp)
+                .spawn_with_handle(
+                    async move {
+                        let uuid = Uuid::from_slice(req.get_uuid())?;
+                        try_engine!(<CloseEngineResponse> import.close_engine(uuid));
+                        Ok(CloseEngineResponse::default())
                     }
-                    Err(e) => Err(e),
-                })
-                .then(move |res| send_rpc_response!(res, sink, label, timer)),
+                    .then(move |res| send_rpc_response!(res, sink, label, timer)),
+                )
+                .unwrap(),
         )
     }
 
@@ -264,21 +238,21 @@ impl ImportKv for ImportKVService {
         req: ImportEngineRequest,
         sink: UnarySink<ImportEngineResponse>,
     ) {
-        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
-            return;
-        }
         let label = "import_engine";
         let timer = Instant::now_coarse();
         let import = Arc::clone(&self.importer);
 
         ctx.spawn(
             self.threads
-                .spawn_fn(move || {
-                    let uuid = Uuid::from_slice(req.get_uuid())?;
-                    import.import_engine(uuid, req.get_pd_addr())
-                })
-                .map(|_| ImportEngineResponse::default())
-                .then(move |res| send_rpc_response!(res, sink, label, timer)),
+                .spawn_with_handle(
+                    async move {
+                        let uuid = Uuid::from_slice(req.get_uuid())?;
+                        import.import_engine(uuid, req.get_pd_addr()).await?;
+                        Ok(ImportEngineResponse::default())
+                    }
+                    .then(move |res| send_rpc_response!(res, sink, label, timer)),
+                )
+                .unwrap(),
         )
     }
 
@@ -288,21 +262,21 @@ impl ImportKv for ImportKVService {
         req: CleanupEngineRequest,
         sink: UnarySink<CleanupEngineResponse>,
     ) {
-        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
-            return;
-        }
         let label = "cleanup_engine";
         let timer = Instant::now_coarse();
         let import = Arc::clone(&self.importer);
 
         ctx.spawn(
             self.threads
-                .spawn_fn(move || {
-                    let uuid = Uuid::from_slice(req.get_uuid())?;
-                    import.cleanup_engine(uuid)
-                })
-                .map(|_| CleanupEngineResponse::default())
-                .then(move |res| send_rpc_response!(res, sink, label, timer)),
+                .spawn_with_handle(
+                    async move {
+                        let uuid = Uuid::from_slice(req.get_uuid())?;
+                        import.cleanup_engine(uuid)?;
+                        Ok(CleanupEngineResponse::default())
+                    }
+                    .then(move |res| send_rpc_response!(res, sink, label, timer)),
+                )
+                .unwrap(),
         )
     }
 
@@ -314,9 +288,6 @@ impl ImportKv for ImportKVService {
         req: CompactClusterRequest,
         sink: UnarySink<CompactClusterResponse>,
     ) {
-        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
-            return;
-        }
         let label = "compact_cluster";
         let timer = Instant::now_coarse();
         let min_available_ratio = self.cfg.min_available_ratio;
@@ -337,22 +308,24 @@ impl ImportKv for ImportKVService {
 
         ctx.spawn(
             self.threads
-                .spawn_fn(move || {
-                    let client =
-                        Client::new(req.get_pd_addr(), 1, min_available_ratio, security_mgr)?;
-                    match client.compact_cluster(&compact) {
-                        Ok(_) => {
-                            info!("compact cluster"; "req" => ?compact);
-                            Ok(())
-                        }
-                        Err(e) => {
-                            error!("compact cluster failed"; "req" => ?compact, "err" => %e);
-                            Err(e)
+                .spawn_with_handle(
+                    async move {
+                        let client =
+                            Client::new(req.get_pd_addr(), 1, min_available_ratio, security_mgr)?;
+                        match client.compact_cluster(&compact).await {
+                            Ok(_) => {
+                                info!("compact cluster"; "req" => ?compact);
+                                Ok(CompactClusterResponse::default())
+                            }
+                            Err(e) => {
+                                error!("compact cluster failed"; "req" => ?compact, "err" => %e);
+                                Err(e)
+                            }
                         }
                     }
-                })
-                .map(|_| CompactClusterResponse::default())
-                .then(move |res| send_rpc_response!(res, sink, label, timer)),
+                    .then(move |res| send_rpc_response!(res, sink, label, timer)),
+                )
+                .unwrap(),
         )
     }
 
@@ -362,23 +335,23 @@ impl ImportKv for ImportKVService {
         _req: GetVersionRequest,
         sink: UnarySink<GetVersionResponse>,
     ) {
-        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
-            return;
-        }
         let label = "get_version";
         let timer = Instant::now_coarse();
 
         ctx.spawn(
             self.threads
-                .spawn_fn(|| {
-                    let v = env!("CARGO_PKG_VERSION");
-                    let c = env!("TIKV_BUILD_GIT_HASH");
-                    let mut res = GetVersionResponse::default();
-                    res.set_version(v.to_owned());
-                    res.set_commit(c.to_owned());
-                    Ok(res)
-                })
-                .then(move |res| send_rpc_response!(res, sink, label, timer)),
+                .spawn_with_handle(
+                    async move {
+                        let v = env!("CARGO_PKG_VERSION");
+                        let c = env!("TIKV_BUILD_GIT_HASH");
+                        let mut res = GetVersionResponse::default();
+                        res.set_version(v.to_owned());
+                        res.set_commit(c.to_owned());
+                        Ok(res)
+                    }
+                    .then(move |res| send_rpc_response!(res, sink, label, timer)),
+                )
+                .unwrap(),
         )
     }
 
@@ -388,20 +361,20 @@ impl ImportKv for ImportKVService {
         _req: GetMetricsRequest,
         sink: UnarySink<GetMetricsResponse>,
     ) {
-        if !check_common_name(self.importer.security_mgr.cert_allowed_cn(), &ctx) {
-            return;
-        }
         let label = "get_metrics";
         let timer = Instant::now_coarse();
 
         ctx.spawn(
             self.threads
-                .spawn_fn(|| {
-                    let mut res = GetMetricsResponse::default();
-                    res.set_prometheus(metrics::dump());
-                    Ok(res)
-                })
-                .then(move |res| send_rpc_response!(res, sink, label, timer)),
+                .spawn_with_handle(
+                    async move {
+                        let mut res = GetMetricsResponse::default();
+                        res.set_prometheus(metrics::dump());
+                        Ok(res)
+                    }
+                    .then(move |res| send_rpc_response!(res, sink, label, timer)),
+                )
+                .unwrap(),
         )
     }
 }

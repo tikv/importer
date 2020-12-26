@@ -5,7 +5,6 @@ use std::num::ParseIntError;
 use std::path::PathBuf;
 use std::result;
 
-use futures::sync::oneshot::Canceled;
 use grpcio::Error as GrpcError;
 use kvproto::errorpb;
 use kvproto::metapb::*;
@@ -38,15 +37,11 @@ quick_error! {
             cause(err)
             display("{}", err)
         }
-        Future(err: Canceled) {
-            from()
-            cause(err)
-        }
         RocksDB(msg: String) {
             from()
             display("RocksDB {}", msg)
         }
-        Engine(err: engine::Error) {
+        Engine(err: engine_traits::Error) {
             from()
             display("Engine {:?}", err)
         }
@@ -128,5 +123,8 @@ pub type Result<T> = result::Result<T, Error>;
 
 #[test]
 fn test_description() {
-    assert_eq!(Error::from(GrpcError::QueueShutdown).to_string(), GrpcError::QueueShutdown.to_string());
+    assert_eq!(
+        Error::from(GrpcError::QueueShutdown).to_string(),
+        GrpcError::QueueShutdown.to_string()
+    );
 }

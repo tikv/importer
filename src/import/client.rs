@@ -4,8 +4,9 @@ use std::io::Read;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use futures::future;
-use futures::{Async, Future, Poll, Stream};
+use futures::future::{self, BoxFuture, FutureExt};
+use futures::stream::{self, StreamExt};
+use futures::SinkExt;
 use grpcio::{CallOption, Channel, ChannelBuilder, EnvBuilder, Environment, WriteFlags};
 
 use engine_rocksdb::SequentialFile;
@@ -14,8 +15,8 @@ use kvproto::kvrpcpb::*;
 use kvproto::pdpb::OperatorStatus;
 use kvproto::tikvpb::TikvClient;
 
+use collections::{HashMap, HashMapEntry};
 use pd_client::{Config as PdConfig, Error as PdError, PdClient, RegionInfo, RpcClient};
-use tikv_util::collections::{HashMap, HashMapEntry};
 use security::SecurityManager;
 use txn_types::Key;
 
@@ -35,7 +36,7 @@ pub trait ImportClient: Send + Sync + Clone + 'static {
         unimplemented!()
     }
 
-    fn upload_sst(&self, _: u64, _: UploadStream) -> Result<UploadResponse> {
+    fn upload_sst(&self, _: u64, _: UploadStream) -> BoxFuture<'_, Result<UploadResponse>> {
         unimplemented!()
     }
 
@@ -43,7 +44,7 @@ pub trait ImportClient: Send + Sync + Clone + 'static {
         unimplemented!()
     }
 
-    fn has_region_id(&self, _: u64) -> Result<bool> {
+    fn has_region_id(&self, _: u64) -> BoxFuture<'_, Result<bool>> {
         unimplemented!()
     }
 
@@ -72,14 +73,16 @@ impl Client {
         security_mgr: Arc<SecurityManager>,
     ) -> Result<Client> {
         let cfg = PdConfig::new(vec![pd_addr.to_owned()]);
-        let rpc_client = RpcClient::new(&cfg, security_mgr.clone())?;
-        let env = EnvBuilder::new()
-            .name_prefix("import-client")
-            .cq_count(cq_count)
-            .build();
+        let env = Arc::new(
+            EnvBuilder::new()
+                .name_prefix("import-client")
+                .cq_count(cq_count)
+                .build(),
+        );
+        let rpc_client = RpcClient::new(&cfg, Some(env.clone()), security_mgr.clone())?;
         Ok(Client {
             pd: Arc::new(rpc_client),
-            env: Arc::new(env),
+            env,
             channels: Mutex::new(HashMap::default()),
             min_available_ratio,
             security_mgr,
@@ -118,7 +121,7 @@ impl Client {
         })
     }
 
-    pub fn switch_cluster(&self, req: &SwitchModeRequest) -> Result<()> {
+    pub async fn switch_cluster(&self, req: &SwitchModeRequest) -> Result<()> {
         let mut futures = Vec::new();
         // Exclude tombstone stores.
         for store in self.pd.get_all_stores(true)? {
@@ -140,13 +143,11 @@ impl Client {
             futures.push(future);
         }
 
-        future::join_all(futures)
-            .wait()
-            .map(|_| ())
-            .map_err(Error::from)
+        future::try_join_all(futures).await?;
+        Ok(())
     }
 
-    pub fn compact_cluster(&self, req: &CompactRequest) -> Result<()> {
+    pub async fn compact_cluster(&self, req: &CompactRequest) -> Result<()> {
         let mut futures = Vec::new();
         // Exclude tombstone stores.
         for store in self.pd.get_all_stores(true)? {
@@ -168,10 +169,8 @@ impl Client {
             futures.push(future);
         }
 
-        future::join_all(futures)
-            .wait()
-            .map(|_| ())
-            .map_err(Error::from)
+        future::try_join_all(futures).await?;
+        Ok(())
     }
 }
 
@@ -210,12 +209,21 @@ impl ImportClient for Client {
         self.pd.scatter_region(region.clone()).map_err(Error::from)
     }
 
-    fn upload_sst(&self, store_id: u64, req: UploadStream) -> Result<UploadResponse> {
-        let ch = self.resolve(store_id)?;
-        let client = ImportSstClient::new(ch);
-        let (tx, rx) = client.upload_opt(self.option(Duration::from_secs(30)))?;
-        let res = req.forward(tx).and_then(|_| rx.map_err(Error::from)).wait();
-        self.post_resolve(store_id, res.map_err(Error::from))
+    fn upload_sst(
+        &self,
+        store_id: u64,
+        req: UploadStream,
+    ) -> BoxFuture<'_, Result<UploadResponse>> {
+        async move {
+            let ch = self.resolve(store_id)?;
+            let client = ImportSstClient::new(ch);
+            let (tx, rx) = client.upload_opt(self.option(Duration::from_secs(30)))?;
+            stream::iter(req)
+                .forward(tx.sink_map_err(Error::from))
+                .await?;
+            self.post_resolve(store_id, rx.await.map_err(Error::from))
+        }
+        .boxed()
     }
 
     fn ingest_sst(&self, store_id: u64, req: IngestRequest) -> Result<IngestResponse> {
@@ -225,8 +233,8 @@ impl ImportClient for Client {
         self.post_resolve(store_id, res.map_err(Error::from))
     }
 
-    fn has_region_id(&self, id: u64) -> Result<bool> {
-        Ok(self.pd.get_region_by_id(id).wait()?.is_some())
+    fn has_region_id(&self, id: u64) -> BoxFuture<'_, Result<bool>> {
+        async move { Ok(self.pd.get_region_by_id(id).await?.is_some()) }.boxed()
     }
 
     fn is_scatter_region_finished(&self, region_id: u64) -> Result<bool> {
@@ -268,31 +276,34 @@ impl<R> UploadStream<R> {
 
 const UPLOAD_CHUNK_SIZE: usize = 1024 * 1024;
 
-impl<R: Read> Stream for UploadStream<R> {
-    type Item = (UploadRequest, WriteFlags);
-    type Error = Error;
+impl<R: Read> Iterator for UploadStream<R> {
+    type Item = Result<(UploadRequest, WriteFlags)>;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Error> {
+    fn next(&mut self) -> Option<Self::Item> {
         let flags = WriteFlags::default().buffer_hint(true);
 
         if let Some(meta) = self.meta.take() {
             let mut chunk = UploadRequest::default();
             chunk.set_meta(meta);
-            return Ok(Async::Ready(Some((chunk, flags))));
+            return Some(Ok((chunk, flags)));
         }
 
         let mut buf = Vec::with_capacity(UPLOAD_CHUNK_SIZE);
-        self.data
+        if let Err(e) = self
+            .data
             .by_ref()
             .take(UPLOAD_CHUNK_SIZE as u64)
-            .read_to_end(&mut buf)?;
+            .read_to_end(&mut buf)
+        {
+            return Some(Err(e.into()));
+        }
         if buf.is_empty() {
-            return Ok(Async::Ready(None));
+            return None;
         }
 
         let mut chunk = UploadRequest::default();
         chunk.set_data(buf);
-        Ok(Async::Ready(Some((chunk, flags))))
+        Some(Ok((chunk, flags)))
     }
 }
 
@@ -313,7 +324,8 @@ mod tests {
         let mut stream = UploadStream::new(meta.clone(), &*data);
 
         // Check meta.
-        if let Async::Ready(Some((upload, _))) = stream.poll().unwrap() {
+        if let Some(res) = stream.next() {
+            let (upload, _) = res.unwrap();
             assert_eq!(upload.get_meta().get_crc32(), meta.get_crc32());
             assert_eq!(upload.get_meta().get_length(), meta.get_length());
         } else {
@@ -322,7 +334,8 @@ mod tests {
 
         // Check data.
         let mut buf: Vec<u8> = Vec::with_capacity(UPLOAD_CHUNK_SIZE * 4);
-        while let Async::Ready(Some((upload, _))) = stream.poll().unwrap() {
+        for res in stream {
+            let (upload, _) = res.unwrap();
             buf.extend(upload.get_data());
         }
         assert_eq!(buf, data);

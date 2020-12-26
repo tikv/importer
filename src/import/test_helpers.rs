@@ -3,11 +3,12 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
+use futures::future::{self, BoxFuture, FutureExt};
 use kvproto::kvrpcpb::*;
 use kvproto::metapb::*;
 
+use collections::HashMap;
 use pd_client::RegionInfo;
-use tikv_util::collections::HashMap;
 
 use super::client::*;
 use super::common::*;
@@ -100,9 +101,9 @@ impl ImportClient for MockClient {
         Ok(())
     }
 
-    fn has_region_id(&self, region_id: u64) -> Result<bool> {
+    fn has_region_id(&self, region_id: u64) -> BoxFuture<'_, Result<bool>> {
         let regions = self.regions.lock().unwrap();
-        Ok(regions.contains_key(&region_id))
+        future::ok(regions.contains_key(&region_id)).boxed()
     }
 
     fn is_scatter_region_finished(&self, _: u64) -> Result<bool> {

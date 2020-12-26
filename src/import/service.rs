@@ -10,7 +10,7 @@ pub fn make_rpc_error(err: Error) -> RpcStatus {
 
 #[macro_export]
 macro_rules! send_rpc_response {
-    ($res:ident, $sink:ident, $label:ident, $timer:ident) => {{
+    ($res:ident, $sink:ident, $label:ident, $timer:ident) => {async move {
         let res = match $res {
             Ok(resp) => {
                 IMPORT_RPC_DURATION
@@ -25,6 +25,8 @@ macro_rules! send_rpc_response {
                 $sink.fail(make_rpc_error(e))
             }
         };
-        res.map_err(|e| warn!("send rpc response"; "err" => %e))
+        if let Err(e) = res.await {
+            warn!("send rpc response"; "err" => %e);
+        }
     }};
 }
