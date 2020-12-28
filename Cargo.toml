@@ -51,6 +51,9 @@ hex = "0.3"
 collections = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", default-features = false }
 futures-timer = "3"
 
+# make sure this is the same as TiKV's Cargo.lock
+openssl-src = "=111.10.2+1.1.1g"
+
 [dependencies.engine_rocksdb]
 git = "https://github.com/tikv/rust-rocksdb.git"
 package = "rocksdb"
