@@ -22,7 +22,8 @@ path = "tests/integrations/import/mod.rs"
 clap = "2.33"
 cmd = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", features = ["prost-codec"] }
 crc32fast = "1.2"
-crossbeam = "0.7"
+async-channel = "1.5"
+async-mutex = "1.4"
 engine_rocks = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", default-features = false, features = ["prost-codec"] }
 engine_traits = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", default-features = false }
 futures = { version = "0.3", features = ["thread-pool"] }

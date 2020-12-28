@@ -78,7 +78,7 @@ impl<Client: ImportClient> RangeContext<Client> {
     }
 
     /// Reset size and region for the next key.
-    pub fn reset(&mut self, key: &[u8]) {
+    pub async fn reset(&mut self, key: &[u8]) {
         self.raw_size = 0;
         if let Some(ref region) = self.region {
             if before_end(key, region.get_end_key()) {
@@ -86,7 +86,7 @@ impl<Client: ImportClient> RangeContext<Client> {
                 return;
             }
         }
-        self.region = match self.client.get_region(key) {
+        self.region = match self.client.get_region(key).await {
             Ok(region) => Some(region),
             Err(e) => {
                 error!("get region failed"; "err" => %e);
@@ -184,6 +184,8 @@ mod tests {
     use super::*;
     use crate::import::test_helpers::*;
 
+    use futures::executor::block_on;
+
     #[test]
     fn test_before_end() {
         assert!(before_end(b"ab", b"bc"));
@@ -227,14 +229,14 @@ mod tests {
         // Reach size limit.
         assert!(ctx.should_stop_before(b"k3"));
 
-        ctx.reset(b"k3");
+        block_on(ctx.reset(b"k3"));
         assert_eq!(ctx.raw_size(), 0);
         ctx.add(4);
         assert_eq!(ctx.raw_size(), 4);
         // Reach region end.
         assert!(ctx.should_stop_before(b"k4"));
 
-        ctx.reset(b"k4");
+        block_on(ctx.reset(b"k4"));
         assert_eq!(ctx.raw_size(), 0);
         ctx.add(4);
         assert!(!ctx.should_stop_before(b"k5"));

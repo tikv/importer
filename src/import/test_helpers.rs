@@ -54,7 +54,7 @@ impl MockClient {
 }
 
 impl ImportClient for MockClient {
-    fn get_region(&self, key: &[u8]) -> Result<RegionInfo> {
+    fn get_region(&self, key: &[u8]) -> BoxFuture<'_, Result<RegionInfo>> {
         let mut found = None;
         for region in self.regions.lock().unwrap().values() {
             if inside_region(key, region) {
@@ -62,10 +62,10 @@ impl ImportClient for MockClient {
                 break;
             }
         }
-        Ok(RegionInfo::new(found.unwrap(), None))
+        future::ok(RegionInfo::new(found.unwrap(), None)).boxed()
     }
 
-    fn split_region(&self, _: &RegionInfo, split_key: &[u8]) -> Result<SplitRegionResponse> {
+    fn split_region(&self, _: &RegionInfo, split_key: &[u8]) -> BoxFuture<'_, Result<SplitRegionResponse>> {
         let mut regions = self.regions.lock().unwrap();
 
         let region = regions
@@ -92,7 +92,7 @@ impl ImportClient for MockClient {
         let mut resp = SplitRegionResponse::default();
         resp.set_left(left);
         resp.set_right(right);
-        Ok(resp)
+        future::ok(resp).boxed()
     }
 
     fn scatter_region(&self, region: &RegionInfo) -> Result<()> {
@@ -110,7 +110,7 @@ impl ImportClient for MockClient {
         Ok(true)
     }
 
-    fn is_space_enough(&self, _: u64, _: u64) -> Result<bool> {
-        Ok(true)
+    fn is_space_enough(&self, _: u64, _: u64) -> BoxFuture<'_, Result<bool>> {
+        future::ok(true).boxed()
     }
 }
