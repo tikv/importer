@@ -66,7 +66,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(
+    pub async fn new(
         pd_addr: &str,
         cq_count: usize,
         min_available_ratio: f64,
@@ -79,7 +79,8 @@ impl Client {
                 .cq_count(cq_count)
                 .build(),
         );
-        let rpc_client = RpcClient::new(&cfg, Some(env.clone()), security_mgr.clone())?;
+        let rpc_client =
+            RpcClient::new_async(&cfg, Some(env.clone()), security_mgr.clone()).await?;
         Ok(Client {
             pd: Arc::new(rpc_client),
             env,
