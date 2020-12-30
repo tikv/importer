@@ -124,7 +124,7 @@ impl<Client: ImportClient> PrepareJob<Client> {
             }
 
             start = k.to_owned();
-            ctx.reset(k);
+            ctx.reset(k).await;
         }
 
         // We need to wait all regions for scattering finished.
@@ -177,7 +177,7 @@ impl<Client: ImportClient> PrepareRangeJob<Client> {
                 Delay::new(Duration::from_secs(RETRY_INTERVAL_SECS)).await;
             }
 
-            let mut region = match self.client.get_region(self.range.get_start()) {
+            let mut region = match self.client.get_region(self.range.get_start()).await {
                 Ok(region) => region,
                 Err(e) => {
                     warn!("get_region failed"; "tag" => %self.tag, "err" => %e);
@@ -212,7 +212,7 @@ impl<Client: ImportClient> PrepareRangeJob<Client> {
         if !self.need_split(&region) {
             return Ok(false);
         }
-        match self.split_region(&region) {
+        match self.split_region(&region).await {
             Ok(new_region) => {
                 // We need to wait for a few milliseconds, because PD may have
                 // not received any heartbeat from the new split region, such
@@ -272,9 +272,9 @@ impl<Client: ImportClient> PrepareRangeJob<Client> {
         before_end(split_key, region.get_end_key())
     }
 
-    fn split_region(&self, region: &RegionInfo) -> Result<RegionInfo> {
+    async fn split_region(&self, region: &RegionInfo) -> Result<RegionInfo> {
         let split_key = self.range.get_end();
-        let res = match self.client.split_region(region, split_key) {
+        let res = match self.client.split_region(region, split_key).await {
             Ok(mut resp) => {
                 if !resp.has_region_error() {
                     Ok(resp)
@@ -458,7 +458,7 @@ mod tests {
         for &(ref start, ref end, should_scatter) in expected_region_ranges {
             let start_key = new_encoded_key(start);
             let end_key = new_encoded_key(end);
-            let region = client.get_region(&start_key).unwrap();
+            let region = client.get_region(&start_key).await.unwrap();
             assert_eq!(region.get_start_key(), start_key.as_slice());
             assert_eq!(region.get_end_key(), end_key.as_slice());
             if should_scatter {

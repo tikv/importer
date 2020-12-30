@@ -1,12 +1,17 @@
 // Copyright 2018 TiKV Project Authors. Licensed under Apache-2.0.
 
+use std::future::Future;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use crossbeam::channel::{bounded, Receiver, Sender};
-use futures::executor::block_on;
+use async_channel::{bounded, Receiver, Sender};
+use futures::{
+    executor::{ThreadPool, ThreadPoolBuilder},
+    future::{self, RemoteHandle},
+    stream::{FuturesUnordered, StreamExt},
+    task::SpawnExt,
+};
 use futures_timer::Delay;
 use kvproto::import_sstpb::*;
 use uuid::Uuid;
@@ -69,13 +74,30 @@ impl<Client: ImportClient> ImportJob<Client> {
             .map(|range| range.range)
             .collect();
         IMPORT_EACH_PHASE.with_label_values(&["import"]).set(1.0);
+
+        let import_thread_pool = ThreadPoolBuilder::new()
+            .name_prefix("import-job-")
+            .pool_size(self.cfg.num_import_jobs)
+            .create()
+            .unwrap();
+        let split_thread_pool = ThreadPoolBuilder::new()
+            .name_prefix("dispatch-job-")
+            .pool_size(self.cfg.num_import_jobs * 2)
+            .create()
+            .unwrap();
+
         for i in 0..MAX_RETRY_TIMES {
             let retry_ranges = Arc::new(Mutex::new(Vec::new()));
-            let handles = self.run_import_threads(ranges, Arc::clone(&retry_ranges));
-            for h in handles {
-                if let Err(e) = h.join().unwrap() {
-                    res = Err(e)
-                }
+            let handles = self
+                .run_import_threads(
+                    ranges,
+                    Arc::clone(&retry_ranges),
+                    &import_thread_pool,
+                    &split_thread_pool,
+                )
+                .await;
+            if let Some(e) = handles.filter_map(|x| future::ready(x.err())).next().await {
+                res = Err(e)
             }
             ranges = Arc::try_unwrap(retry_ranges).unwrap().into_inner().unwrap();
             let retry_count = ranges.len();
@@ -115,19 +137,16 @@ impl<Client: ImportClient> ImportJob<Client> {
         id: u64,
         rx: Receiver<LazySSTRange>,
         retry_ranges: Arc<Mutex<Vec<Range>>>,
-    ) -> JoinHandle<Result<()>> {
+    ) -> impl Future<Output = Result<()>> + 'static {
         let client = self.client.clone();
         let engine = Arc::clone(&self.engine);
         let counter = Arc::clone(&self.counter);
         let speed_limit = self.speed_limit.clone();
 
-        thread::Builder::new()
-            .name(format!("import-job-{}", id))
-            .spawn(move || {
-                let job = SubImportJob::new(id, rx, client, engine, counter, speed_limit);
-                block_on(job.run_sub_import_job(retry_ranges))
-            })
-            .unwrap()
+        async move {
+            let job = SubImportJob::new(id, rx, client, engine, counter, speed_limit);
+            job.run_sub_import_job(retry_ranges).await
+        }
     }
 
     fn new_split_thread(
@@ -137,76 +156,79 @@ impl<Client: ImportClient> ImportJob<Client> {
         range_rx: Receiver<Range>,
         sst_tx: Sender<LazySSTRange>,
         finished_ranges: Arc<Mutex<Vec<Range>>>,
-    ) -> JoinHandle<Result<()>> {
+    ) -> impl Future<Output = Result<()>> + 'static {
         let engine = Arc::clone(&self.engine);
         let cfg = self.cfg.clone();
         let tag = self.tag.clone();
 
-        thread::Builder::new()
-            .name(format!("dispatch-job-{}", id))
-            .spawn(move || {
-                let mut ranges_handled = 0;
+        async move {
+            let mut ranges_handled = 0;
 
-                'NEXT_RANGE: while let Ok(range) = range_rx.recv() {
-                    ranges_handled += 1;
-                    'RETRY: for _ in 0..MAX_RETRY_TIMES {
-                        let cfg = cfg.clone();
-                        let client = Arc::clone(&client);
-                        let engine = Arc::clone(&engine);
-                        let mut stream = SSTFileStream::new(
-                            cfg,
-                            client,
-                            engine,
-                            range.clone(),
-                            finished_ranges.lock().unwrap().clone(),
-                        );
+            'NEXT_RANGE: while let Ok(range) = range_rx.recv().await {
+                ranges_handled += 1;
+                'RETRY: for _ in 0..MAX_RETRY_TIMES {
+                    let cfg = cfg.clone();
+                    let client = Arc::clone(&client);
+                    let engine = Arc::clone(&engine);
+                    let mut stream = SSTFileStream::new(
+                        cfg,
+                        client,
+                        engine,
+                        range.clone(),
+                        finished_ranges.lock().unwrap().clone(),
+                    );
 
-                        loop {
-                            let split_start = Instant::now_coarse();
-                            match stream.next() {
-                                Ok(Some(info)) => {
-                                    let split_dur = split_start.elapsed();
-                                    IMPORT_SPLIT_SST_DURATION.observe(split_dur.as_secs_f64());
-                                    if split_dur > Duration::from_secs(1) {
-                                        info!("dump sst completed"; "takes" => ?split_dur, "range" => ?ReadableDebug(&info.0), "sst" => ?info.1);
-                                    }
-                                    let start = Instant::now_coarse();
-                                    sst_tx.send(info).unwrap();
-                                    IMPORT_SST_DELIVERY_DURATION.observe(start.elapsed_secs());
+                    loop {
+                        let split_start = Instant::now_coarse();
+                        match stream.next().await {
+                            Ok(Some(info)) => {
+                                let split_dur = split_start.elapsed();
+                                IMPORT_SPLIT_SST_DURATION.observe(split_dur.as_secs_f64());
+                                if split_dur > Duration::from_secs(1) {
+                                    info!("dump sst completed"; "takes" => ?split_dur, "range" => ?ReadableDebug(&info.0), "sst" => ?info.1);
                                 }
-                                Ok(None) => continue 'NEXT_RANGE,
-                                Err(_) => continue 'RETRY,
+                                let start = Instant::now_coarse();
+                                sst_tx.send(info).await.unwrap();
+                                IMPORT_SST_DELIVERY_DURATION.observe(start.elapsed_secs());
                             }
+                            Ok(None) => continue 'NEXT_RANGE,
+                            Err(_) => continue 'RETRY,
                         }
                     }
                 }
+            }
 
-                if ranges_handled > 0 {
-                    info!("dispatch-job done"; "tag" => %tag, "id" => %id, "ranges_handled" => %ranges_handled);
-                }
-                Ok(())
-            })
-            .unwrap()
+            if ranges_handled > 0 {
+                info!("dispatch-job done"; "tag" => %tag, "id" => %id, "ranges_handled" => %ranges_handled);
+            }
+            Ok(())
+        }
     }
 
-    fn run_import_threads(
+    async fn run_import_threads(
         &self,
         ranges: Vec<Range>,
         retry_ranges: Arc<Mutex<Vec<Range>>>,
-    ) -> Vec<JoinHandle<Result<()>>> {
+        import_thread_pool: &ThreadPool,
+        split_thread_pool: &ThreadPool,
+    ) -> FuturesUnordered<RemoteHandle<Result<()>>> {
         info!("run import threads"; "tag" => %self.tag, "num_import_jobs" => %self.cfg.num_import_jobs);
 
-        let mut handles: Vec<JoinHandle<Result<()>>> = Vec::new();
+        let handles = FuturesUnordered::new();
         let finished_ranges = Arc::new(Mutex::new(Vec::new()));
         let (sst_tx, sst_rx) = bounded(self.cfg.num_import_jobs);
 
         // Spawn a group of threads to execute real import jobs
         for id in 0..self.cfg.num_import_jobs {
-            handles.push(self.new_import_thread(
-                id as u64,
-                sst_rx.clone(),
-                Arc::clone(&retry_ranges),
-            ));
+            handles.push(
+                import_thread_pool
+                    .spawn_with_handle(self.new_import_thread(
+                        id as u64,
+                        sst_rx.clone(),
+                        Arc::clone(&retry_ranges),
+                    ))
+                    .unwrap(),
+            );
         }
 
         let split_thread_count = self.cfg.num_import_jobs * 2;
@@ -215,18 +237,22 @@ impl<Client: ImportClient> ImportJob<Client> {
         // Spawn a group of threads to split range to ssts
         let client = Arc::new(self.client.clone());
         for id in 0..split_thread_count {
-            handles.push(self.new_split_thread(
-                id as u64,
-                Arc::clone(&client),
-                range_rx.clone(),
-                sst_tx.clone(),
-                Arc::clone(&finished_ranges),
-            ));
+            handles.push(
+                split_thread_pool
+                    .spawn_with_handle(self.new_split_thread(
+                        id as u64,
+                        Arc::clone(&client),
+                        range_rx.clone(),
+                        sst_tx.clone(),
+                        Arc::clone(&finished_ranges),
+                    ))
+                    .unwrap(),
+            );
         }
 
         for range in ranges {
             let start = Instant::now_coarse();
-            range_tx.send(range).unwrap();
+            range_tx.send(range).await.unwrap();
             IMPORT_RANGE_DELIVERY_DURATION.observe(start.elapsed_secs());
         }
 
@@ -274,7 +300,7 @@ impl<Client: ImportClient> SubImportJob<Client> {
         let num_errors = Arc::clone(&self.num_errors);
 
         let mut start = Instant::now_coarse();
-        while let Ok((range, ssts)) = self.rx.recv() {
+        while let Ok((range, ssts)) = self.rx.recv().await {
             IMPORT_SST_RECV_DURATION.observe(start.elapsed_secs());
             start = Instant::now_coarse();
             'NEXT_SST: for lazy_sst in ssts {
@@ -329,7 +355,7 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
             }
 
             let range = self.sst.meta.get_range().clone();
-            let mut region = match self.client.get_region(range.get_start()) {
+            let mut region = match self.client.get_region(range.get_start()).await {
                 Ok(region) => {
                     if self.sst.inside_region(&region) {
                         region
@@ -381,7 +407,7 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
         IMPORT_SST_CHUNK_BYTES.observe(self.sst.info.file_size as f64);
 
         let start = Instant::now_coarse();
-        match self.ingest(&region) {
+        match self.ingest(&region).await {
             Ok(_) => {
                 IMPORT_SST_INGEST_DURATION.observe(start.elapsed_secs());
                 Ok(())
@@ -426,7 +452,7 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
             let upload = UploadStream::new(self.sst.meta.clone(), file);
             let store_id = peer.get_store_id();
             let mut err_logged = false;
-            while !self.client.is_space_enough(store_id, size)? {
+            while !self.client.is_space_enough(store_id, size).await? {
                 if !err_logged {
                     warn!("no enough space, will retry silently"; "tag" => %self.tag, "store" => %store_id, "size" => %size);
                     err_logged = true;
@@ -454,7 +480,7 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
         Ok(())
     }
 
-    fn ingest(&self, region: &RegionInfo) -> Result<()> {
+    async fn ingest(&self, region: &RegionInfo) -> Result<()> {
         let start = Instant::now();
 
         let ctx = new_context(region);
@@ -464,7 +490,7 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
         ingest.set_context(ctx);
         ingest.set_sst(self.sst.meta.clone());
 
-        let res = match self.client.ingest_sst(store_id, ingest) {
+        let res = match self.client.ingest_sst(store_id, ingest).await {
             Ok(mut resp) => {
                 if !resp.has_error() {
                     Ok(())

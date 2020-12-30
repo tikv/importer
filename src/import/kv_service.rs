@@ -93,7 +93,7 @@ impl ImportKv for ImportKVService {
         ctx.spawn(
             self.threads
                 .spawn_with_handle(async move {
-                    let client = Client::new(req.get_pd_addr(), 1, min_available_ratio, security_mgr)?;
+                    let client = Client::new(req.get_pd_addr(), 1, min_available_ratio, security_mgr).await?;
                     match client.switch_cluster(req.get_request()).await {
                         Ok(_) => {
                             info!("switch cluster"; "req" => ?req.get_request());
@@ -311,7 +311,8 @@ impl ImportKv for ImportKVService {
                 .spawn_with_handle(
                     async move {
                         let client =
-                            Client::new(req.get_pd_addr(), 1, min_available_ratio, security_mgr)?;
+                            Client::new(req.get_pd_addr(), 1, min_available_ratio, security_mgr)
+                                .await?;
                         match client.compact_cluster(&compact).await {
                             Ok(_) => {
                                 info!("compact cluster"; "req" => ?compact);

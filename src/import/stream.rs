@@ -68,14 +68,14 @@ impl<Client: ImportClient> SSTFileStream<Client> {
         }
     }
 
-    pub fn next(&mut self) -> Result<Option<LazySSTRange>> {
+    pub async fn next(&mut self) -> Result<Option<LazySSTRange>> {
         if !self.iter.valid()? {
             return Ok(None);
         }
 
         let mut w = self.engine.new_sst_writer()?;
         let start = self.iter.key().to_owned();
-        self.ctx.reset(&start);
+        self.ctx.reset(&start).await;
 
         loop {
             {
@@ -200,6 +200,7 @@ mod tests {
     use std::path::Path;
     use std::sync::Arc;
 
+    use futures::executor::block_on;
     use engine_rocks::raw::{DBIterator, DBOptions, ReadOptions, Writable, DB};
     use tempdir::TempDir;
 
@@ -449,7 +450,7 @@ mod tests {
     ) {
         let mut stream = SSTFileStream::new(cfg, client, engine, sst_range, finished_ranges);
         for (start, end, range_end) in expected_ranges {
-            let (range, ssts) = stream.next().unwrap().unwrap();
+            let (range, ssts) = block_on(stream.next()).unwrap().unwrap();
             let start = Key::from_raw(&[start])
                 .append_ts(TimeStamp::zero())
                 .into_encoded();
@@ -469,6 +470,6 @@ mod tests {
                 assert_eq!(sst.range.get_end(), end.as_slice());
             }
         }
-        assert!(stream.next().unwrap().is_none());
+        assert!(block_on(stream.next()).unwrap().is_none());
     }
 }

@@ -22,7 +22,7 @@ path = "tests/integrations/import/mod.rs"
 clap = "2.33"
 cmd = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", features = ["prost-codec"] }
 crc32fast = "1.2"
-crossbeam = "0.7"
+async-channel = "1.5"
 engine_rocks = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", default-features = false, features = ["prost-codec"] }
 engine_traits = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", default-features = false }
 futures = { version = "0.3", features = ["thread-pool"] }
@@ -50,6 +50,9 @@ uuid = { version = "0.7", features = [ "serde", "v4" ] }
 hex = "0.3"
 collections = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", default-features = false }
 futures-timer = "3"
+
+# make sure this is the same as TiKV's Cargo.lock
+openssl-src = "=111.10.2+1.1.1g"
 
 [dependencies.engine_rocksdb]
 git = "https://github.com/tikv/rust-rocksdb.git"

@@ -124,7 +124,8 @@ impl KVImporter {
             self.cfg.num_import_jobs,
             self.cfg.min_available_ratio,
             self.security_mgr.clone(),
-        )?;
+        )
+        .await?;
         let job = {
             let mut inner = self.inner.lock().unwrap();
             // One engine only related to one ImportJob
