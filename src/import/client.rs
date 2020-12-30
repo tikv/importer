@@ -4,7 +4,7 @@ use std::io::Read;
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_mutex::Mutex;
+use futures::lock::Mutex;
 use futures::future::{self, BoxFuture, FutureExt, TryFuture, TryFutureExt};
 use futures::stream::{self, StreamExt};
 use futures::SinkExt;
