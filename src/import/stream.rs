@@ -200,8 +200,8 @@ mod tests {
     use std::path::Path;
     use std::sync::Arc;
 
-    use futures::executor::block_on;
     use engine_rocks::raw::{DBIterator, DBOptions, ReadOptions, Writable, DB};
+    use futures::executor::block_on;
     use tempdir::TempDir;
 
     use tikv::config::DbConfig;
