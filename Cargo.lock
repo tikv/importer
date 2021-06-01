@@ -4683,7 +4683,7 @@ dependencies = [
 
 [[package]]
 name = "tikv-importer"
-version = "5.0.1"
+version = "5.0.2"
 dependencies = [
  "async-channel",
  "clap",
