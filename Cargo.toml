@@ -1,6 +1,6 @@
 [package]
 name = "tikv-importer"
-version = "5.0.1"
+version = "5.0.2"
 authors = ["The TiKV Authors"]
 description = "Tool to help ingesting large number of KV pairs into TiKV cluster"
 license = "Apache-2.0"
@@ -20,35 +20,34 @@ path = "tests/integrations/import/mod.rs"
 
 [dependencies]
 clap = "2.33"
-cmd = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", features = ["prost-codec"] }
+cmd = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0", default-features = false, features = ["prost-codec"] }
 crc32fast = "1.2"
 async-channel = "1.5"
-engine_rocks = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", default-features = false, features = ["prost-codec"] }
-engine_traits = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", default-features = false }
+engine_rocks = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0", default-features = false, features = ["prost-codec"] }
+engine_traits = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0", default-features = false }
 futures = { version = "0.3", features = ["thread-pool"] }
-grpcio = { version = "0.7", default-features = false, features = ["openssl-vendored"] }
-keys = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", default-features = false }
-# FIXME: create release-5.0-rc branch for kvproto
-kvproto = { version = "0.0.2", git = "https://github.com/pingcap/kvproto.git", default-features = false, features = ["prost-codec"] }
+grpcio = { version = "0.8", default-features = false, features = ["openssl-vendored"] }
+keys = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0", default-features = false }
+kvproto = { branch = "release-5.0", git = "https://github.com/pingcap/kvproto.git", default-features = false, features = ["prost-codec"] }
 lazy_static = "1.4"
-log_wrappers = { version = "0.0.1", git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc" }
-pd_client = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", default-features = false }
+log_wrappers = { version = "0.0.1", git = "https://github.com/tikv/tikv.git", branch = "release-5.0", default-features = false }
+pd_client = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0", default-features = false }
 prometheus = { version = "0.8", features = ["nightly", "push"] }
 quick-error = "1.2"
-raftstore = { version = "0.0.1", git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc" }
+raftstore = { version = "0.0.1", git = "https://github.com/tikv/tikv.git", branch = "release-5.0", default-features = false, features = ["prost-codec"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 slog = { version = "2.5", features = ["max_level_trace", "release_max_level_debug"] }
 slog-global = { version = "0.1", git = "https://github.com/breeswish/slog-global.git", rev = "0e23a5baff302a9d7bccd85f8f31e43339c2f2c1" }
-tikv = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", default-features = false, features = ["prost-codec", "test-engines-rocksdb"] }
-tikv_util = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", default-features = false }
-security = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", default-features = false }
-txn_types = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", default-features = false }
+tikv = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0", default-features = false, features = ["prost-codec", "test-engines-rocksdb"] }
+tikv_util = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0", default-features = false }
+security = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0", default-features = false }
+txn_types = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0", default-features = false }
 tipb = { git = "https://github.com/pingcap/tipb.git", default-features = false, features = ["prost-codec"] }
 toml = "0.4"
 uuid = { version = "0.7", features = [ "serde", "v4" ] }
 hex = "0.3"
-collections = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", default-features = false }
+collections = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0", default-features = false }
 futures-timer = "3"
 
 # make sure this is the same as TiKV's Cargo.lock
@@ -58,13 +57,12 @@ openssl-src = "=111.10.2+1.1.1g"
 git = "https://github.com/tikv/rust-rocksdb.git"
 package = "rocksdb"
 features = ["encryption", "static_libcpp"]
-branch = "tikv-5.0-rc"
+branch = "tikv-5.0"
 
 [dev-dependencies]
 tempdir = "0.3"
 rand = "0.7"
-test_util = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", default-features = false }
-raftstore = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0-rc", default-features = false }
+test_util = { git = "https://github.com/tikv/tikv.git", branch = "release-5.0", default-features = false }
 
 [features]
 tcmalloc = ['tikv/tcmalloc']
@@ -78,6 +76,14 @@ mem-profiling = ['tikv/mem-profiling']
 raft = { git = "https://github.com/tikv/raft-rs", branch = "master", default-features = false }
 raft-proto = { git = "https://github.com/tikv/raft-rs", branch = "master", default-features = false }
 protobuf = { git = "https://github.com/pingcap/rust-protobuf", rev = "65e9df20fbcbcf2409d5ee86a2332ecd04c534f8" }
+
+# TODO: remove this replacement after rusoto_s3 truly supports virtual-host style (https://github.com/rusoto/rusoto/pull/1823).
+rusoto_core = { git = "https://github.com/tikv/rusoto", branch = "gh1482-s3-addr-styles" }
+rusoto_credential = { git = "https://github.com/tikv/rusoto", branch = "gh1482-s3-addr-styles" }
+rusoto_kms = { git = "https://github.com/tikv/rusoto", branch = "gh1482-s3-addr-styles", features = ["serialize_structs"] }
+rusoto_mock = { git = "https://github.com/tikv/rusoto", branch = "gh1482-s3-addr-styles" }
+rusoto_s3 = { git = "https://github.com/tikv/rusoto", branch = "gh1482-s3-addr-styles" }
+rusoto_sts = { git = "https://github.com/tikv/rusoto", branch = "gh1482-s3-addr-styles" }
 
 [profile.dev]
 panic = "abort"
