@@ -275,7 +275,7 @@ impl SSTWriter {
         // Creates a writer for default CF
         // Here is where we set table_properties_collector_factory, so that we can collect
         // some properties about SST
-        let mut default_opts = db_cfg.defaultcf.build_opt(&cache, None);
+        let mut default_opts = db_cfg.defaultcf.build_opt(&cache, None, false);
         default_opts.set_env(Arc::clone(&env));
         default_opts.compression_per_level(&db_cfg.defaultcf.compression_per_level);
         let mut default = SstFileWriter::new(EnvOptions::new(), default_opts);
@@ -511,7 +511,7 @@ mod tests {
         let cfg = DbConfig::default();
         let db_opts = cfg.build_opt();
         let cache = BlockCacheConfig::default().build_shared_cache();
-        let cfs_opts = cfg.build_cf_opts(&cache, None);
+        let cfs_opts = cfg.build_cf_opts(&cache, None, false);
         let db = new_engine_opt(temp_dir.path().to_str().unwrap(), db_opts, cfs_opts).unwrap();
         let db = RocksEngine::from_db(Arc::new(db));
 
@@ -563,7 +563,7 @@ mod tests {
         for i in 0..n {
             let k = Key::from_raw(&[i]);
             let v = reader
-                .get(&k, TimeStamp::new(commit_ts), false)
+                .get(&k, TimeStamp::new(commit_ts), None, false)
                 .unwrap()
                 .unwrap();
             assert_eq!(&v, &value);
