@@ -49,7 +49,7 @@ pub enum Error {
     #[error("{0}")]
     PdRPC(#[from] PdError),
     #[error("TikvRPC {0:?}")]
-    TikvRPC(#[from] errorpb::Error),
+    TikvRPC(errorpb::Error),
     #[error("NotLeader, leader may {0:?}")]
     NotLeader(Option<Peer>),
     #[error("EpochNotMatch {0}")]
@@ -69,6 +69,24 @@ pub enum Error {
 }
 
 pub type Result<T> = result::Result<T, Error>;
+
+impl From<errorpb::Error> for Error {
+    fn from(mut err: errorpb::Error) -> Self {
+        if err.has_not_leader() {
+            let mut error = err.take_not_leader();
+            if error.has_leader() {
+                Error::NotLeader(Some(error.take_leader()))
+            } else {
+                Error::NotLeader(None)
+            }
+        } else if err.has_epoch_not_match() {
+            let mut error = err.take_epoch_not_match();
+            Error::EpochNotMatch(error.take_current_regions().to_vec())
+        } else {
+            Error::TikvRPC(err)
+        }
+    }
+}
 
 #[test]
 fn test_description() {
