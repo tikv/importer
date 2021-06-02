@@ -25,7 +25,7 @@ pub enum Error {
     #[error("{0}")]
     Codec(#[from] CodecError),
     #[error("RocksDB {0}")]
-    RocksDB(#[from] String),
+    RocksDB(String),
     #[error("Engine {0:?}")]
     Engine(#[from] engine_traits::Error),
     #[error("{0}")]
@@ -52,9 +52,9 @@ pub enum Error {
     TikvRPC(errorpb::Error),
     #[error("NotLeader, leader may {0:?}")]
     NotLeader(Option<Peer>),
-    #[error("EpochNotMatch {0}")]
+    #[error("EpochNotMatch")]
     EpochNotMatch(Vec<Region>),
-    #[error("UpdateRegion {0}")]
+    #[error("UpdateRegion")]
     UpdateRegion(RegionInfo),
     #[error("{0}")]
     ImportJobFailed(String),
@@ -69,6 +69,12 @@ pub enum Error {
 }
 
 pub type Result<T> = result::Result<T, Error>;
+
+impl From<String> for Error {
+    fn from(msg: String) -> Self {
+        Self::RocksDB(msg)
+    }
+}
 
 impl From<errorpb::Error> for Error {
     fn from(mut err: errorpb::Error) -> Self {
