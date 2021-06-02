@@ -44,7 +44,7 @@ pub enum Error {
     EngineNotFound(Uuid),
     #[error("Invalid proto message {0}")]
     InvalidProtoMessage(String),
-    #[error("{0}")]
+    #[error("Invalid chunk")]
     InvalidChunk,
     #[error("{0}")]
     PdRPC(#[from] PdError),
