@@ -35,7 +35,10 @@ pub enum Error {
     #[error("File {0:?} not exists")]
     FileNotExists(PathBuf),
     #[error("File {path:?} corrupted: {reason}")]
-    FileCorrupted { path: PathBuf, reason: String },
+    FileCorrupted {
+        path: PathBuf,
+        reason: String,
+    },
     #[error("Invalid SST path {0:?}")]
     InvalidSSTPath(PathBuf),
     #[error("Engine {0} is in use")]
@@ -50,11 +53,8 @@ pub enum Error {
     PdRPC(#[from] PdError),
     #[error("TikvRPC {0:?}")]
     TikvRPC(#[from] errorpb::Error),
-    #[error("NotLeader, leader may {0:?}")]
     NotLeader(Option<Peer>),
-    #[error("EpochNotMatch {0}")]
     EpochNotMatch(Vec<Region>),
-    #[error("UpdateRegion {0}")]
     UpdateRegion(RegionInfo),
     #[error("{0}")]
     ImportJobFailed(String),
