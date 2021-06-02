@@ -1,9 +1,9 @@
 language: rust
 rust:
-  - nightly-2019-04-25
+  - nightly-2021-01-16
 
 script:
-  - cargo build
-  - cargo test
+  - make build
+  - make test
 
 cache: cargo
