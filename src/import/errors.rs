@@ -25,7 +25,7 @@ pub enum Error {
     #[error("{0}")]
     Codec(#[from] CodecError),
     #[error("RocksDB {0}")]
-    RocksDB(String),
+    RocksDB(#[from] String),
     #[error("Engine {0:?}")]
     Engine(#[from] engine_traits::Error),
     #[error("{0}")]
