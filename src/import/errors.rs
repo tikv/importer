@@ -68,24 +68,6 @@ pub enum Error {
     Security(String),
 }
 
-impl From<errorpb::Error> for Error {
-    fn from(mut err: errorpb::Error) -> Self {
-        if err.has_not_leader() {
-            let mut error = err.take_not_leader();
-            if error.has_leader() {
-                Error::NotLeader(Some(error.take_leader()))
-            } else {
-                Error::NotLeader(None)
-            }
-        } else if err.has_epoch_not_match() {
-            let mut error = err.take_epoch_not_match();
-            Error::EpochNotMatch(error.take_current_regions().to_vec())
-        } else {
-            Error::TikvRPC(err)
-        }
-    }
-}
-
 pub type Result<T> = result::Result<T, Error>;
 
 #[test]
