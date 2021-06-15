@@ -8,96 +8,71 @@ use std::result;
 use grpcio::Error as GrpcError;
 use kvproto::errorpb;
 use kvproto::metapb::*;
-use quick_error::quick_error;
+use thiserror::Error;
 use uuid::{self, Uuid};
 
 use pd_client::{Error as PdError, RegionInfo};
 use tikv_util::codec::Error as CodecError;
 
-quick_error! {
-    #[derive(Debug)]
-    pub enum Error {
-        Io(err: IoError) {
-            from()
-            cause(err)
-            display("{}", err)
-        }
-        Grpc(err: GrpcError) {
-            from()
-            cause(err)
-            display("{}", err)
-        }
-        Uuid(err: uuid::BytesError) {
-            from()
-            cause(err)
-            display("{}", err)
-        }
-        Codec(err: CodecError) {
-            from()
-            cause(err)
-            display("{}", err)
-        }
-        RocksDB(msg: String) {
-            from()
-            display("RocksDB {}", msg)
-        }
-        Engine(err: engine_traits::Error) {
-            from()
-            display("Engine {:?}", err)
-        }
-        ParseIntError(err: ParseIntError) {
-            from()
-            cause(err)
-            display("{}", err)
-        }
-        FileExists(path: PathBuf) {
-            display("File {:?} exists", path)
-        }
-        FileNotExists(path: PathBuf) {
-            display("File {:?} not exists", path)
-        }
-        FileCorrupted(path: PathBuf, reason: String) {
-            display("File {:?} corrupted: {}", path, reason)
-        }
-        InvalidSSTPath(path: PathBuf) {
-            display("Invalid SST path {:?}", path)
-        }
-        EngineInUse(uuid: Uuid) {
-            display("Engine {} is in use", uuid)
-        }
-        EngineNotFound(uuid: Uuid) {
-            display("Engine {} not found", uuid)
-        }
-        InvalidProtoMessage(reason: String) {
-            display("Invalid proto message {}", reason)
-        }
-        InvalidChunk {}
-        PdRPC(err: PdError) {
-            from()
-            cause(err)
-            display("{}", err)
-        }
-        TikvRPC(err: errorpb::Error) {
-            display("TikvRPC {:?}", err)
-        }
-        NotLeader(new_leader: Option<Peer>) {}
-        EpochNotMatch(current_regions: Vec<Region>) {}
-        UpdateRegion(new_region: RegionInfo) {}
-        ImportJobFailed(tag: String) {
-            display("{}", tag)
-        }
-        ImportSSTJobFailed(tag: String) {
-            display("{}", tag)
-        }
-        PrepareRangeJobFailed(tag: String) {
-            display("{}", tag)
-        }
-        ResourceTemporarilyUnavailable(msg: String) {
-            display("{}", msg)
-        }
-        Security(msg: String) {
-            display("{}", msg)
-        }
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("{0}")]
+    Io(#[from] IoError),
+    #[error("{0}")]
+    Grpc(#[from] GrpcError),
+    #[error("{0}")]
+    Uuid(#[from] uuid::BytesError),
+    #[error("{0}")]
+    Codec(#[from] CodecError),
+    #[error("RocksDB {0}")]
+    RocksDB(String),
+    #[error("Engine {0:?}")]
+    Engine(#[from] engine_traits::Error),
+    #[error("{0}")]
+    ParseIntError(#[from] ParseIntError),
+    #[error("File {0:?} exists")]
+    FileExists(PathBuf),
+    #[error("File {0:?} not exists")]
+    FileNotExists(PathBuf),
+    #[error("File {path:?} corrupted: {reason}")]
+    FileCorrupted { path: PathBuf, reason: String },
+    #[error("Invalid SST path {0:?}")]
+    InvalidSSTPath(PathBuf),
+    #[error("Engine {0} is in use")]
+    EngineInUse(Uuid),
+    #[error("Engine {0} not found")]
+    EngineNotFound(Uuid),
+    #[error("Invalid proto message {0}")]
+    InvalidProtoMessage(String),
+    #[error("Invalid chunk")]
+    InvalidChunk,
+    #[error("{0}")]
+    PdRPC(#[from] PdError),
+    #[error("TikvRPC {0:?}")]
+    TikvRPC(errorpb::Error),
+    #[error("NotLeader, leader may {0:?}")]
+    NotLeader(Option<Peer>),
+    #[error("EpochNotMatch")]
+    EpochNotMatch(Vec<Region>),
+    #[error("UpdateRegion")]
+    UpdateRegion(RegionInfo),
+    #[error("{0}")]
+    ImportJobFailed(String),
+    #[error("{0}")]
+    ImportSSTJobFailed(String),
+    #[error("{0}")]
+    PrepareRangeJobFailed(String),
+    #[error("{0}")]
+    ResourceTemporarilyUnavailable(String),
+    #[error("{0}")]
+    Security(String),
+}
+
+pub type Result<T> = result::Result<T, Error>;
+
+impl From<String> for Error {
+    fn from(msg: String) -> Self {
+        Self::RocksDB(msg)
     }
 }
 
@@ -118,8 +93,6 @@ impl From<errorpb::Error> for Error {
         }
     }
 }
-
-pub type Result<T> = result::Result<T, Error>;
 
 #[test]
 fn test_description() {

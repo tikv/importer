@@ -4,8 +4,8 @@ use std::io::Read;
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::lock::Mutex;
 use futures::future::{self, BoxFuture, FutureExt, TryFuture, TryFutureExt};
+use futures::lock::Mutex;
 use futures::stream::{self, StreamExt};
 use futures::SinkExt;
 use grpcio::{CallOption, Channel, ChannelBuilder, EnvBuilder, Environment, WriteFlags};

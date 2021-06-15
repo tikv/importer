@@ -65,7 +65,11 @@ impl ImportClient for MockClient {
         future::ok(RegionInfo::new(found.unwrap(), None)).boxed()
     }
 
-    fn split_region(&self, _: &RegionInfo, split_key: &[u8]) -> BoxFuture<'_, Result<SplitRegionResponse>> {
+    fn split_region(
+        &self,
+        _: &RegionInfo,
+        split_key: &[u8],
+    ) -> BoxFuture<'_, Result<SplitRegionResponse>> {
         let mut regions = self.regions.lock().unwrap();
 
         let region = regions
