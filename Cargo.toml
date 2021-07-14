@@ -1,6 +1,6 @@
 [package]
 name = "tikv-importer"
-version = "4.0.13"
+version = "4.0.14"
 authors = ["The TiKV Authors"]
 description = "Tool to help ingesting large number of KV pairs into TiKV cluster"
 license = "Apache-2.0"
@@ -74,6 +74,14 @@ mem-profiling = ['tikv/mem-profiling']
 raft = { git = "https://github.com/pingcap/raft-rs", branch = "0.6.x", default-features = false }
 raft-proto = { git = "https://github.com/pingcap/raft-rs", branch = "0.6.x", default-features = false }
 protobuf = { git = "https://github.com/pingcap/rust-protobuf", rev = "65e9df20fbcbcf2409d5ee86a2332ecd04c534f8" }
+
+# TODO: remove this replacement after rusoto_s3 truly supports virtual-host style (https://github.com/rusoto/rusoto/pull/1823).
+rusoto_core = { git = "https://github.com/tikv/rusoto", rev = "f56ad0217e49ab7e3100ee0cd324db14608112bb" }
+rusoto_credential = { git = "https://github.com/tikv/rusoto", rev = "f56ad0217e49ab7e3100ee0cd324db14608112bb" }
+rusoto_kms = { git = "https://github.com/tikv/rusoto", rev = "f56ad0217e49ab7e3100ee0cd324db14608112bb", features = ["serialize_structs"] }
+rusoto_mock = { git = "https://github.com/tikv/rusoto", rev = "f56ad0217e49ab7e3100ee0cd324db14608112bb" }
+rusoto_s3 = { git = "https://github.com/tikv/rusoto", rev = "f56ad0217e49ab7e3100ee0cd324db14608112bb" }
+rusoto_sts = { git = "https://github.com/tikv/rusoto", rev = "f56ad0217e49ab7e3100ee0cd324db14608112bb" }
 
 [profile.dev]
 panic = "abort"
