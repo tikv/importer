@@ -377,8 +377,8 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
                         return Ok(());
                     }
                     Err(Error::UpdateRegion(new_region)) => {
-                        region = new_region;
-                        continue;
+                        // epoch not match error is not auto-retryble, so directly return to retry from upload
+                        return Err(Error::EpochNotMatch(vec![region.region]))
                     }
                     Err(_) => break,
                 }
