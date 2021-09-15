@@ -161,7 +161,7 @@ impl ImportKv for ImportKVService {
                             let batch = chunk.take_batch();
                             let batch_size = engine.write(batch)?;
                             IMPORT_WRITE_CHUNK_BYTES.observe(batch_size as f64);
-                            IMPORT_WRITE_CHUNK_DURATION.observe(start.elapsed_secs());
+                            IMPORT_WRITE_CHUNK_DURATION.observe(start.saturating_elapsed_secs());
                             Ok(())
                         })
                     })
@@ -206,7 +206,7 @@ impl ImportKv for ImportKVService {
                     let start = Instant::now_coarse();
                     let write_size = engine.write_v3(ts, req.get_pairs())?;
                     IMPORT_WRITE_CHUNK_BYTES.observe(write_size as f64);
-                    IMPORT_WRITE_CHUNK_DURATION.observe(start.elapsed_secs());
+                    IMPORT_WRITE_CHUNK_DURATION.observe(start.saturating_elapsed_secs());
                     Ok(())
                 })
                 .then(move |res| match res {
