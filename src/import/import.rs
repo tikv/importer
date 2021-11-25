@@ -121,7 +121,7 @@ impl<Client: ImportClient> ImportJob<Client> {
 
         match res {
             Ok(_) => {
-                info!("import engine completed"; "tag" => %self.tag, "takes" => ?start.elapsed());
+                info!("import engine completed"; "tag" => %self.tag, "takes" => ?start.saturating_elapsed());
                 Ok(())
             }
             Err(e) => {
@@ -182,14 +182,14 @@ impl<Client: ImportClient> ImportJob<Client> {
                         let split_start = Instant::now_coarse();
                         match stream.next().await {
                             Ok(Some(info)) => {
-                                let split_dur = split_start.elapsed();
+                                let split_dur = split_start.saturating_elapsed();
                                 IMPORT_SPLIT_SST_DURATION.observe(split_dur.as_secs_f64());
                                 if split_dur > Duration::from_secs(1) {
                                     info!("dump sst completed"; "takes" => ?split_dur, "range" => ?ReadableDebug(&info.0), "sst" => ?info.1);
                                 }
                                 let start = Instant::now_coarse();
                                 sst_tx.send(info).await.unwrap();
-                                IMPORT_SST_DELIVERY_DURATION.observe(start.elapsed_secs());
+                                IMPORT_SST_DELIVERY_DURATION.observe(start.saturating_elapsed_secs());
                             }
                             Ok(None) => continue 'NEXT_RANGE,
                             Err(_) => continue 'RETRY,
@@ -253,7 +253,7 @@ impl<Client: ImportClient> ImportJob<Client> {
         for range in ranges {
             let start = Instant::now_coarse();
             range_tx.send(range).await.unwrap();
-            IMPORT_RANGE_DELIVERY_DURATION.observe(start.elapsed_secs());
+            IMPORT_RANGE_DELIVERY_DURATION.observe(start.saturating_elapsed_secs());
         }
 
         handles
@@ -301,7 +301,7 @@ impl<Client: ImportClient> SubImportJob<Client> {
 
         let mut start = Instant::now_coarse();
         while let Ok((range, ssts)) = self.rx.recv().await {
-            IMPORT_SST_RECV_DURATION.observe(start.elapsed_secs());
+            IMPORT_SST_RECV_DURATION.observe(start.saturating_elapsed_secs());
             start = Instant::now_coarse();
             'NEXT_SST: for lazy_sst in ssts {
                 let sst = lazy_sst.into_sst_file()?;
@@ -373,7 +373,7 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
             for _ in 0..MAX_RETRY_TIMES {
                 match self.import(region).await {
                     Ok(_) => {
-                        info!("import sst completed"; "tag" => %self.tag, "takes" => ?start.elapsed());
+                        info!("import sst completed"; "tag" => %self.tag, "takes" => ?start.saturating_elapsed());
                         return Ok(());
                     }
                     Err(Error::UpdateRegion(new_region)) => {
@@ -403,13 +403,13 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
 
         let start = Instant::now_coarse();
         self.upload(&region).await?;
-        IMPORT_SST_UPLOAD_DURATION.observe(start.elapsed_secs());
+        IMPORT_SST_UPLOAD_DURATION.observe(start.saturating_elapsed_secs());
         IMPORT_SST_CHUNK_BYTES.observe(self.sst.info.file_size as f64);
 
         let start = Instant::now_coarse();
         match self.ingest(&region).await {
             Ok(_) => {
-                IMPORT_SST_INGEST_DURATION.observe(start.elapsed_secs());
+                IMPORT_SST_INGEST_DURATION.observe(start.saturating_elapsed_secs());
                 Ok(())
             }
             Err(Error::NotLeader(new_leader)) => {
@@ -472,10 +472,10 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
             }
         }
 
-        let takes = start.elapsed();
+        let takes = start.saturating_elapsed();
         if takes > Duration::from_secs(1) {
             let speed = size as f64 / (takes.as_secs_f64() * 1048576.0);
-            info!("upload completed"; "tag" => %self.tag, "takes" => ?start.elapsed(), "speed(MB/s)" => %speed, "size" => %size, "region_id" => %region.id);
+            info!("upload completed"; "tag" => %self.tag, "takes" => ?takes, "speed(MB/s)" => %speed, "size" => %size, "region_id" => %region.id);
         }
         Ok(())
     }
@@ -506,7 +506,7 @@ impl<'a, Client: ImportClient> ImportSSTJob<'a, Client> {
 
         match res {
             Ok(_) => {
-                info!("ingest completed"; "tag" => %self.tag, "takes" => ?start.elapsed(), "store" => %store_id, "region_id" => %region.id);
+                info!("ingest completed"; "tag" => %self.tag, "takes" => ?start.saturating_elapsed(), "store" => %store_id, "region_id" => %region.id);
                 Ok(())
             }
             Err(e) => {

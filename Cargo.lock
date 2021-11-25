@@ -185,7 +185,7 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 [[package]]
 name = "aws"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "async-trait",
  "bytes 0.5.6",
@@ -225,7 +225,7 @@ dependencies = [
 [[package]]
 name = "backup"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "collections",
  "concurrency_manager",
@@ -283,7 +283,7 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 [[package]]
 name = "batch-system"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "collections",
  "crossbeam 0.8.0",
@@ -434,11 +434,12 @@ dependencies = [
 [[package]]
 name = "cdc"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "bitflags",
  "collections",
  "concurrency_manager",
+ "configuration",
  "crossbeam 0.8.0",
  "engine_rocks",
  "engine_traits",
@@ -463,7 +464,7 @@ dependencies = [
  "slog-global 0.1.0 (git+https://github.com/breeswish/slog-global.git?rev=d592f88e4dbba5eb439998463054f1a44fbf17b9)",
  "tikv",
  "tikv_util",
- "tokio",
+ "tokio 0.2.24",
  "txn_types",
 ]
 
@@ -541,7 +542,7 @@ dependencies = [
 [[package]]
 name = "cloud"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "async-trait",
  "derive_more",
@@ -579,7 +580,7 @@ dependencies = [
 [[package]]
 name = "cmd"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "backup",
  "cdc",
@@ -621,7 +622,7 @@ dependencies = [
  "tikv_alloc",
  "tikv_util",
  "time 0.1.44",
- "tokio",
+ "tokio 0.2.24",
  "toml 0.5.8",
  "txn_types",
  "vlog",
@@ -631,7 +632,7 @@ dependencies = [
 [[package]]
 name = "codec"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "byteorder",
  "error_code",
@@ -644,7 +645,7 @@ dependencies = [
 [[package]]
 name = "collections"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "fxhash",
  "tikv_alloc",
@@ -653,12 +654,12 @@ dependencies = [
 [[package]]
 name = "concurrency_manager"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "crossbeam-skiplist",
  "fail",
  "parking_lot",
- "tokio",
+ "tokio 0.2.24",
  "txn_types",
 ]
 
@@ -674,7 +675,7 @@ dependencies = [
 [[package]]
 name = "configuration"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "configuration_derive",
  "serde",
@@ -683,7 +684,7 @@ dependencies = [
 [[package]]
 name = "configuration_derive"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "proc-macro2 1.0.24",
  "quote 1.0.8",
@@ -1093,7 +1094,7 @@ dependencies = [
 [[package]]
 name = "encryption"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "async-trait",
  "byteorder",
@@ -1122,13 +1123,13 @@ dependencies = [
  "slog-global 0.1.0 (git+https://github.com/breeswish/slog-global.git?rev=d592f88e4dbba5eb439998463054f1a44fbf17b9)",
  "tikv_alloc",
  "tikv_util",
- "tokio",
+ "tokio 0.2.24",
 ]
 
 [[package]]
 name = "encryption_export"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "async-trait",
  "aws",
@@ -1148,7 +1149,7 @@ dependencies = [
 [[package]]
 name = "engine_panic"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "engine_traits",
  "kvproto",
@@ -1161,7 +1162,7 @@ dependencies = [
 [[package]]
 name = "engine_rocks"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "collections",
  "configuration",
@@ -1193,7 +1194,7 @@ dependencies = [
 [[package]]
 name = "engine_test"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "engine_panic",
  "engine_rocks",
@@ -1206,7 +1207,7 @@ dependencies = [
 [[package]]
 name = "engine_traits"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "error_code",
  "file_system",
@@ -1226,7 +1227,7 @@ dependencies = [
 [[package]]
 name = "engine_traits_tests"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "engine_test",
  "engine_traits",
@@ -1237,7 +1238,7 @@ dependencies = [
 [[package]]
 name = "error_code"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "grpcio",
  "kvproto",
@@ -1257,7 +1258,7 @@ checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
 [[package]]
 name = "external_storage"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "bytes 0.5.6",
  "futures 0.3.14",
@@ -1282,7 +1283,7 @@ dependencies = [
  "tame-oauth",
  "tikv_alloc",
  "tikv_util",
- "tokio",
+ "tokio 0.2.24",
  "url",
 ]
 
@@ -1328,7 +1329,7 @@ checksum = "f35ce9c8fb9891c75ceadbc330752951a4e369b50af10775955aeb9af3eee34b"
 [[package]]
 name = "file_system"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "collections",
  "crc32fast",
@@ -1673,7 +1674,7 @@ dependencies = [
  "http",
  "indexmap",
  "slab",
- "tokio",
+ "tokio 0.2.24",
  "tokio-util",
  "tracing",
  "tracing-futures",
@@ -1776,7 +1777,7 @@ dependencies = [
  "itoa",
  "pin-project 1.0.2",
  "socket2",
- "tokio",
+ "tokio 0.2.24",
  "tower-service",
  "tracing",
  "want",
@@ -1796,7 +1797,7 @@ dependencies = [
  "once_cell",
  "openssl",
  "openssl-sys",
- "tokio",
+ "tokio 0.2.24",
  "tokio-openssl",
  "tower-layer",
 ]
@@ -1810,7 +1811,7 @@ dependencies = [
  "bytes 0.5.6",
  "hyper",
  "native-tls",
- "tokio",
+ "tokio 0.2.24",
  "tokio-tls",
 ]
 
@@ -1870,7 +1871,7 @@ dependencies = [
 [[package]]
 name = "into_other"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "engine_traits",
  "kvproto",
@@ -1956,7 +1957,7 @@ dependencies = [
 [[package]]
 name = "keys"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "byteorder",
  "derive_more",
@@ -1970,7 +1971,7 @@ dependencies = [
 [[package]]
 name = "kvproto"
 version = "0.0.2"
-source = "git+https://github.com/pingcap/kvproto.git?branch=release-5.0#7790f94ac2ad2a1141fc63089e335135e79d1961"
+source = "git+https://github.com/pingcap/kvproto.git?branch=release-5.0#7d7377864e93be88508a52cae3b3f9a6f4137f57"
 dependencies = [
  "futures 0.3.14",
  "grpcio",
@@ -2031,7 +2032,7 @@ dependencies = [
 [[package]]
 name = "librocksdb_sys"
 version = "0.1.0"
-source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-5.0#72334ceb658740d2addae0c57b8156a46f7a8f19"
+source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-5.0#53ff7e7a8fff03058ce03b9d520227cc4aff90b8"
 dependencies = [
  "bindgen",
  "bzip2-sys",
@@ -2050,7 +2051,7 @@ dependencies = [
 [[package]]
 name = "libtitan_sys"
 version = "0.0.1"
-source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-5.0#72334ceb658740d2addae0c57b8156a46f7a8f19"
+source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-5.0#53ff7e7a8fff03058ce03b9d520227cc4aff90b8"
 dependencies = [
  "bzip2-sys",
  "cc",
@@ -2110,7 +2111,7 @@ dependencies = [
 [[package]]
 name = "log_wrappers"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "hex 0.4.2",
  "protobuf",
@@ -2132,7 +2133,7 @@ dependencies = [
 [[package]]
 name = "match_template"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "proc-macro2 1.0.24",
  "quote 1.0.8",
@@ -2666,7 +2667,7 @@ dependencies = [
 [[package]]
 name = "pd_client"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "collections",
  "error_code",
@@ -2687,6 +2688,7 @@ dependencies = [
  "slog-global 0.1.0 (git+https://github.com/breeswish/slog-global.git?rev=d592f88e4dbba5eb439998463054f1a44fbf17b9)",
  "tikv_alloc",
  "tikv_util",
+ "tokio 1.14.0",
  "tokio-timer",
  "txn_types",
  "yatp",
@@ -3030,9 +3032,9 @@ dependencies = [
 
 [[package]]
 name = "protobuf-build"
-version = "0.12.0"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "539f2589cd0892cfc07ae25f6e0d2b43440f66b10839e881698f113be28353b2"
+checksum = "6a7266835d38c38c73b091a24412de1f4b4382a5195fab1ec038161582b03b78"
 dependencies = [
  "bitflags",
  "grpcio-compiler",
@@ -3078,7 +3080,7 @@ dependencies = [
 [[package]]
 name = "raft"
 version = "0.6.0-alpha"
-source = "git+https://github.com/tikv/raft-rs?branch=master#91a60ce417d55d4ca4d96b29963e3e3fa7f7d8d7"
+source = "git+https://github.com/tikv/raft-rs?rev=91a60ce417d55d4ca4d96b29963e3e3fa7f7d8d7#91a60ce417d55d4ca4d96b29963e3e3fa7f7d8d7"
 dependencies = [
  "fxhash",
  "getset",
@@ -3092,13 +3094,12 @@ dependencies = [
 [[package]]
 name = "raft-engine"
 version = "0.1.0"
-source = "git+https://github.com/tikv/raft-engine?branch=master#8f98fdf290c463685521b20917d19ad0946c1343"
+source = "git+https://github.com/tikv/raft-engine?branch=master#8452ee10d0b287f12053ba25183a9a65d014e423"
 dependencies = [
  "byteorder",
  "crc32fast",
- "crossbeam 0.8.0",
+ "crossbeam 0.7.3",
  "fxhash",
- "hex 0.4.2",
  "lazy_static",
  "log",
  "lz4-sys",
@@ -3111,7 +3112,7 @@ dependencies = [
 [[package]]
 name = "raft-proto"
 version = "0.6.0-alpha"
-source = "git+https://github.com/tikv/raft-rs?branch=master#91a60ce417d55d4ca4d96b29963e3e3fa7f7d8d7"
+source = "git+https://github.com/tikv/raft-rs?rev=91a60ce417d55d4ca4d96b29963e3e3fa7f7d8d7#91a60ce417d55d4ca4d96b29963e3e3fa7f7d8d7"
 dependencies = [
  "lazy_static",
  "prost",
@@ -3122,7 +3123,7 @@ dependencies = [
 [[package]]
 name = "raft_log_engine"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "configuration",
  "engine_traits",
@@ -3143,7 +3144,7 @@ dependencies = [
 [[package]]
 name = "raftstore"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "batch-system",
  "bitflags",
@@ -3190,7 +3191,7 @@ dependencies = [
  "tikv_alloc",
  "tikv_util",
  "time 0.1.44",
- "tokio",
+ "tokio 0.2.24",
  "txn_types",
  "uuid 0.8.1",
  "yatp",
@@ -3478,7 +3479,7 @@ dependencies = [
  "pin-project-lite 0.2.6",
  "serde",
  "serde_urlencoded 0.7.0",
- "tokio",
+ "tokio 0.2.24",
  "tokio-tls",
  "url",
  "wasm-bindgen",
@@ -3490,7 +3491,7 @@ dependencies = [
 [[package]]
 name = "resolved_ts"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "collections",
  "concurrency_manager",
@@ -3513,7 +3514,7 @@ dependencies = [
  "thiserror",
  "tikv",
  "tikv_util",
- "tokio",
+ "tokio 0.2.24",
  "txn_types",
 ]
 
@@ -3556,7 +3557,7 @@ checksum = "cabe4fa914dec5870285fa7f71f602645da47c486e68486d2b4ceb4a343e90ac"
 [[package]]
 name = "rocksdb"
 version = "0.3.0"
-source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-5.0#72334ceb658740d2addae0c57b8156a46f7a8f19"
+source = "git+https://github.com/tikv/rust-rocksdb.git?branch=tikv-5.0#53ff7e7a8fff03058ce03b9d520227cc4aff90b8"
 dependencies = [
  "libc",
  "librocksdb_sys",
@@ -3585,7 +3586,7 @@ dependencies = [
  "rustc_version",
  "serde",
  "serde_json",
- "tokio",
+ "tokio 0.2.24",
  "xml-rs",
 ]
 
@@ -3604,7 +3605,7 @@ dependencies = [
  "serde",
  "serde_json",
  "shlex",
- "tokio",
+ "tokio 0.2.24",
  "zeroize",
 ]
 
@@ -3654,7 +3655,7 @@ dependencies = [
  "serde",
  "sha2",
  "time 0.2.23",
- "tokio",
+ "tokio 0.2.24",
 ]
 
 [[package]]
@@ -3675,7 +3676,7 @@ dependencies = [
 [[package]]
 name = "rusoto_util"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "async-trait",
  "rusoto_core",
@@ -3773,9 +3774,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
+name = "seahash"
+version = "4.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c107b6f4780854c8b126e228ea8869f4d7b71260f962fefb57b996b8959ba6b"
+
+[[package]]
 name = "security"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "collections",
  "encryption",
@@ -4081,7 +4088,7 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 [[package]]
 name = "sst_importer"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "crc32fast",
  "encryption",
@@ -4105,7 +4112,7 @@ dependencies = [
  "slog-global 0.1.0 (git+https://github.com/breeswish/slog-global.git?rev=d592f88e4dbba5eb439998463054f1a44fbf17b9)",
  "tikv_alloc",
  "tikv_util",
- "tokio",
+ "tokio 0.2.24",
  "txn_types",
  "uuid 0.8.1",
 ]
@@ -4372,7 +4379,7 @@ dependencies = [
 [[package]]
 name = "test_util"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "collections",
  "encryption_export",
@@ -4430,7 +4437,7 @@ dependencies = [
 [[package]]
 name = "tidb_query_aggr"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "match_template",
  "tidb_query_codegen",
@@ -4444,7 +4451,7 @@ dependencies = [
 [[package]]
 name = "tidb_query_codegen"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "darling",
  "heck",
@@ -4456,7 +4463,7 @@ dependencies = [
 [[package]]
 name = "tidb_query_common"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "derive_more",
  "error_code",
@@ -4473,7 +4480,7 @@ dependencies = [
 [[package]]
 name = "tidb_query_datatype"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "bitfield",
  "bitflags",
@@ -4512,7 +4519,7 @@ dependencies = [
 [[package]]
 name = "tidb_query_executors"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "codec",
  "collections",
@@ -4537,7 +4544,7 @@ dependencies = [
 [[package]]
 name = "tidb_query_expr"
 version = "0.0.1"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "base64 0.12.3",
  "bstr",
@@ -4568,8 +4575,8 @@ dependencies = [
 
 [[package]]
 name = "tikv"
-version = "5.0.3"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+version = "5.0.4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -4641,6 +4648,7 @@ dependencies = [
  "rand 0.7.3",
  "regex",
  "rev_lines",
+ "seahash",
  "security",
  "serde",
  "serde_derive",
@@ -4661,7 +4669,7 @@ dependencies = [
  "tikv_util",
  "time 0.1.44",
  "tipb",
- "tokio",
+ "tokio 0.2.24",
  "tokio-openssl",
  "tokio-timer",
  "toml 0.5.8",
@@ -4675,7 +4683,7 @@ dependencies = [
 
 [[package]]
 name = "tikv-importer"
-version = "5.0.4"
+version = "5.0.5"
 dependencies = [
  "async-channel",
  "clap",
@@ -4749,7 +4757,7 @@ dependencies = [
 [[package]]
 name = "tikv_alloc"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "lazy_static",
  "libc",
@@ -4763,7 +4771,7 @@ dependencies = [
 [[package]]
 name = "tikv_util"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "async-speed-limit",
  "backtrace",
@@ -4808,7 +4816,7 @@ dependencies = [
  "sysinfo",
  "tikv_alloc",
  "time 0.1.44",
- "tokio",
+ "tokio 0.2.24",
  "tokio-executor",
  "tokio-timer",
  "url",
@@ -4925,6 +4933,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio"
+version = "1.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70e992e41e0d2fb9f755b37446f20900f64446ef54874f40a60c78f021ac6144"
+dependencies = [
+ "autocfg 1.0.1",
+ "pin-project-lite 0.2.6",
+]
+
+[[package]]
 name = "tokio-executor"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4952,7 +4970,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c4b08c5f4208e699ede3df2520aca2e82401b2de33f45e96696a074480be594"
 dependencies = [
  "openssl",
- "tokio",
+ "tokio 0.2.24",
 ]
 
 [[package]]
@@ -4974,7 +4992,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a70f4fcd7b3b24fb194f837560168208f669ca8cb70d0c4b862944452396343"
 dependencies = [
  "native-tls",
- "tokio",
+ "tokio 0.2.24",
 ]
 
 [[package]]
@@ -4988,7 +5006,7 @@ dependencies = [
  "futures-sink",
  "log",
  "pin-project-lite 0.1.11",
- "tokio",
+ "tokio 0.2.24",
 ]
 
 [[package]]
@@ -5081,7 +5099,7 @@ dependencies = [
 [[package]]
 name = "txn_types"
 version = "0.1.0"
-source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#63b63edfbb9bbf8aeb875aad28c59f082eeb55d4"
+source = "git+https://github.com/tikv/tikv.git?branch=release-5.0#81b96ebfef322ee14fe4450f6437302fdee0e111"
 dependencies = [
  "byteorder",
  "codec",
